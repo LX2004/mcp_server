@@ -102,7 +102,7 @@ Each task can be executed independently using the same workflow:
 
 ```bash
 cd fitness/code
-python main.py
+python main_optimization_grna.py
 
 ```
 ---
@@ -110,7 +110,7 @@ python main.py
 #### Task 2: Promoter Optimization Design
 ```bash
 cd promoter/code
-python main.py
+python opt_promoter_main.py
 
 ```
 
@@ -119,7 +119,8 @@ python main.py
 #### Task 3: RNA Switch Design
 ```bash
 cd rna_switch/code
-python main.py
+python main_multi_object_opt.py
+
 
 ```
 
