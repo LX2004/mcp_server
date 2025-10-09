@@ -86,7 +86,14 @@ After setting up the environment, please download the pretrained models from the
 
 #### 📂 Step 2. Place Models in the Correct Directories
 
-After downloading, create a `model` folder under each corresponding module and place the model files accordingly:
+Once downloaded, place the models in their respective module directories:
+
+- **Promoter model:** Place the pretrained promoter model inside a new folder named `model` under the `promoter` directory.  
+  Example path: `promoter/model/promoter_model.pth`
+
+- **RNA switch model:** Place the pretrained RNA switch model inside a new folder named `model` under the `rna_switch` directory.  
+  Example path: `rna_switch/model/rna_switch_model.pth`
+
 
 
 
