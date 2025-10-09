@@ -82,8 +82,6 @@ After setting up the environment, please download the pretrained models from the
 👉 [Download Pretrained Models](https://drive.google.com/drive/folders/1JqzpNJhw3-G-Hz-OHc8qw-fjm_U4BgFd?usp=sharing)
 
 
-(Replace the above link with your actual shared Google Drive URL.)
-
 ---
 
 #### 📂 Step 2. Place Models in the Correct Directories | 将模型放置到正确位置
