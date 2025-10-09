@@ -99,12 +99,10 @@ After completing the environment setup and placing pretrained models, run the fo
 Each task can be executed independently using the same workflow:
 
 #### Task 1: CRISPRi gRNA Optimization
+
 ```bash
 cd fitness/code
-python main.py```
-
-
-
+python main.py
 
 #### Task 2: Promoter Optimization Design
 ```bash
