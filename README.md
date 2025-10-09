@@ -130,6 +130,16 @@ python main_multi_object_opt.py
 ## MCP Server Installation
 For detailed steps, please refer to the [link](https://modelcontextprotocol.io/quickstart/server#why-claude-for-desktop-and-not-claude-ai).
 
+### 🖥️ System Requirements
+
+Before running the project, please ensure the following system requirements are met:
+
+- **Python 3.10 or higher** must be installed.  
+- **Python MCP SDK 1.2.0 or higher** is required.
+
+It is recommended to use **Conda** for environment management to maintain version consistency across dependencies.
+
+
 ### UV Installation
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
