@@ -102,6 +102,7 @@ Each task can be executed independently using the same workflow:
 ```bash
 cd fitness/code
 python main.py
+
 ···
 
 
