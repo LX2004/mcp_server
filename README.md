@@ -79,7 +79,7 @@ After creating the Conda environment, please download the pretrained models from
 #### 📥 Step 1. Download Pretrained Models | 下载预训练模型
 
 You can download all pretrained models from the following link:  
-👉 [Google Drive – Pretrained Models]([https://drive.google.com/](https://drive.google.com/drive/folders/1JqzpNJhw3-G-Hz-OHc8qw-fjm_U4BgFd?usp=sharing))
+👉 [Google Drive – Pretrained Models]([https://drive.google.com/drive/folders/1JqzpNJhw3-G-Hz-OHc8qw-fjm_U4BgFd?usp=sharing])
 
 (Replace the above link with your actual shared Google Drive URL.)
 
