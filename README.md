@@ -125,3 +125,56 @@ python main_multi_object_opt.py
 ```
 
 ---
+
+
+## MCP Server Installation
+For detailed steps, please refer to the [link](https://modelcontextprotocol.io/quickstart/server#why-claude-for-desktop-and-not-claude-ai).
+
+### UV Installation
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+### Create a new directory for our project
+```bash
+uv init fitness_prediction
+cd fitness_prediction
+```
+
+### Create a virtual environment and activate it
+```bash
+uv venv
+.venv\Scripts\activate.bat
+```
+
+### Install dependencies
+```bash
+uv add "mcp[cli]" httpx
+uv add numpy scikit-learn scipy xgboost pandas matplotlib
+```
+
+### Create our server file
+```bash
+touch fitness_prediction.py
+```
+Copy the contents of `MCP/prediction.py` to the created `fitness_prediction.py` file.
+
+All files:
+![image](https://github.com/user-attachments/assets/df02712e-56bb-47b1-8f5f-f1f23d1668d7)
+
+##  Using MCP Server
+### Install third-party software
+[cherry](https://www.cherry-ai.com/) or [Cursor](https://www.cursor.com/cn).
+
+### MCP Profile
+Replace "ABSOLUTE_PATH_PLACEHOLDER" in the `MCP/mcp_config.json` file with the absolute path of the project.
+
+After the replacement is completed, you can query the running MCP server in the third-party software.
+
+## 4. Making RAG by cherry studio
+```bash
+python download_abstract.py
+```
+
+
