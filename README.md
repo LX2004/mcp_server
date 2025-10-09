@@ -57,7 +57,7 @@ This approach exemplifies a step toward **autonomous, self-directed synthetic bi
 
 ---
 
-## 🧬 Environment Configuration Guide
+## 🧬 Environment Configuration and Using Guide
 
 To ensure reproducibility of the experiments, all dependencies and software versions are stored in the `environment.yml` file.
 
