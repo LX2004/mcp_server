@@ -104,18 +104,23 @@ Each task can be executed independently using the same workflow:
 cd fitness/code
 python main.py
 
+```
 ---
 
 #### Task 2: Promoter Optimization Design
 ```bash
 cd promoter/code
-python main.py```
+python main.py
+
+```
 
 ---
 
 #### Task 3: RNA Switch Design
 ```bash
 cd rna_switch/code
-python main.py```
+python main.py
+
+```
 
 ---
