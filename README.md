@@ -69,5 +69,6 @@ To ensure reproducibility of the experiments, all dependencies and software vers
 ```bash
 conda env create -f environment.yml
 
-conda activate bio-llm```
+conda activate mcp_server
+```
 
