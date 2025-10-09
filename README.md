@@ -54,3 +54,20 @@ The system can autonomously generate and rank RNA switches, guided entirely by n
 Together, these modules constitute a unified framework for intelligent biological design.  
 By coupling **large language models** with **domain-specific computation via MCP**, this repository transforms LLMs from passive reasoning systems into **active AI designers**—capable of performing CRISPRi optimization, promoter engineering, and RNA switch design with minimal human intervention.  
 This approach exemplifies a step toward **autonomous, self-directed synthetic biology**, aligning with the forward-looking principles of next-generation DBTL automation.
+
+---
+
+## 🧬 Environment Configuration Guide
+
+To ensure reproducibility of the experiments, all dependencies and software versions are stored in the `environment.yml` file.
+
+---
+
+### 🔧 1. Create Environment
+
+#### Using Conda
+```bash
+conda env create -f environment.yml
+
+conda activate bio-llm```
+
