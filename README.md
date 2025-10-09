@@ -74,7 +74,6 @@ conda activate mcp_server
 
 After creating the Conda environment, please download the pretrained models from our shared Google Drive link.
 
-在完成 Conda 环境创建后，请从我们提供的 Google 网盘链接下载预训练模型文件。
 
 #### 📥 Step 1. Download Pretrained Models
 
@@ -94,6 +93,26 @@ Once downloaded, place the models in their respective module directories:
 - **RNA switch model:** Place the pretrained RNA switch model inside a new folder named `model` under the `rna_switch` directory.  
   Example path: `rna_switch/model/rna_switch_model.pth`
 
+### 🚀 3. Run and Verify Each Synthetic Biology Task
+
+After completing the environment setup and placing pretrained models, run the following scripts to verify functionality for each module.  
+Each task can be executed independently using the same workflow:
+
+#### Task 1: CRISPRi gRNA Optimization
+```bash
+cd fitness/code
+python main.py
+···
 
 
+#### Task 2: Promoter Optimization Design
+```bash
+cd promoter/code
+python main.py
+···
 
+#### Task 3: RNA Switch Design
+```bash
+cd rna_switch/code
+python main.py
+···
