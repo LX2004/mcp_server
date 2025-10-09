@@ -65,10 +65,29 @@ To ensure reproducibility of the experiments, all dependencies and software vers
 
 ### 🔧 1. Create Environment
 
-#### Using Conda
 ```bash
 conda env create -f environment.yml
 
 conda activate mcp_server
 ```
+### 🧠 2.Pretrained Models Setup | 预训练模型配置
+
+After creating the Conda environment, please download the pretrained models from our shared Google Drive link.
+
+在完成 Conda 环境创建后，请从我们提供的 Google 网盘链接下载预训练模型文件。
+
+#### 📥 Step 1. Download Pretrained Models | 下载预训练模型
+
+You can download all pretrained models from the following link:  
+👉 [Google Drive – Pretrained Models](https://drive.google.com/)
+
+(Replace the above link with your actual shared Google Drive URL.)
+
+---
+
+#### 📂 Step 2. Place Models in the Correct Directories | 将模型放置到正确位置
+
+After downloading, create a `model` folder under each corresponding module and place the model files accordingly:
+
+
 
