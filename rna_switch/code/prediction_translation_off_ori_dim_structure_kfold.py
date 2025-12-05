@@ -1,31 +1,167 @@
-import hyperopt
-from hyperopt import fmin, tpe, hp, Trials
+import os
+import time
+from datetime import datetime
+import argparse
 import torch
 from utils import *
-from net import predict_transformerv2
-from initialize import initialize_weights
-from torch.utils.data import DataLoader,Dataset
-
-import numpy as np
-import pdb
+import script_utils
 import os
-from sklearn.model_selection import KFold
+import cma
+import RNA
+from rna_switch_energy import analyze_rna_switch
+from Bio import SeqIO
+from Bio.Seq import Seq
+
+
+def dna_reverse_complement_to_rna(dna_seq: str) -> str:
+    """
+    Take a DNA sequence, compute the reverse complement, and convert it to RNA (T->U).
+    """
+    dna_seq = dna_seq.upper()
+    rc_seq = str(Seq(dna_seq).reverse_complement())  # reverse complement
+    rna_seq = rc_seq.replace("T", "U")               # convert T to U
+    return rna_seq
+
+
+def construct_toehold_trigger_from_list(merged_list):
+    """
+    Input a list of merged sequences, each 45 nt: switch(30) + stem1(6) + stem2(9),
+    and return the full toehold switch sequence list and corresponding trigger RNAs.
+
+    Args:
+    - merged_list: List[str], each element is a 45-nt merged sequence
+
+    Returns:
+    - full_sequences: List[str], full toehold switch sequences (RNA)
+    - Ttigger_rna: List[str], corresponding trigger RNA sequences
+    """
+    # fixed scaffold
+    loop1 = "AACCAAACACACAAACGCAC"
+    loop2 = "AACAGAGGAGA"
+    atg = "ATG"
+    linker = "AACCTGGCGGCAGCGCAAAAGATGCG"
+    post_linker = "TAAAGGAGAA"
+
+    full_sequences = []
+    Ttigger_rna = []
+
+    for merged_seq in merged_list:
+        if len(merged_seq) != 45:
+            raise ValueError(f"序列长度应为45 nt，但发现长度为 {len(merged_seq)}：{merged_seq}")
+        
+        switch = merged_seq[:30]
+        stem1 = merged_seq[30:36]
+        stem2 = merged_seq[36:]
+        
+        full_seq = loop1 + switch + loop2 + stem1 + atg + stem2 + linker + post_linker
+        full_seq_rna = full_seq.replace("T", "U")
+        full_sequences.append(full_seq_rna)
+
+        Ttigger_rna.append(dna_reverse_complement_to_rna(switch))
+
+    return full_sequences, Ttigger_rna
+
+
+def process_toehold_structures(switch):
+    """
+    Given a list of (DNA) toehold segments, construct full switch and trigger,
+    compute RNA secondary structure and thermodynamic metrics.
+
+    Args:
+        switch (List[str]): list of merged sequences (45 nt)
+
+    Returns:
+        toehold_switch_sequence (List[str]): full toehold switch RNA sequences
+        Trigger_rnas (List[str]): trigger RNA sequences
+        DeltaDeltaG_opens (List[float]): ΔΔG_open values
+        MFE_selfs (List[float]): self-folding MFEs
+    """
+
+    toehold_switch_sequence, Trigger_rnas = construct_toehold_trigger_from_list(merged_list=switch)
+
+    # store structural and energy information
+    MFE_selfs = []
+    DeltaDeltaG_opens = []
+    records = []
+
+    for seq, trigger in zip(toehold_switch_sequence, Trigger_rnas):
+
+        structure, mfe = RNA.fold(seq)
+        res = analyze_rna_switch(switch_seq=seq, trigger_seq=trigger)
+        DeltaDeltaG_opens.append(round(res["DeltaDeltaG_open"], 4))
+        MFE_selfs.append(round(res["MFE_self"], 4))
+
+        records.append({
+
+            "Sequence": seq,
+            "Trigger rna": trigger,
+            "Structure": structure,
+
+            "MFE_self (kcal/mol)": round(res["MFE_self"], 2),
+            # "MFE (kcal/mol)": round(mfe, 2),
+            "MFE_hybrid (kcal/mol)": round(res["MFE_hybrid"], 2),
+            "DeltaDeltaG_open (kcal/mol)": round(res["DeltaDeltaG_open"], 2),
+            
+        })
+
+    # df = pd.DataFrame(records)
+    # df_sorted = df.sort_values(by="DeltaDeltaG_open (kcal/mol)", ascending=True)
+
+    return toehold_switch_sequence, Trigger_rnas, DeltaDeltaG_opens, MFE_selfs
+    # df_sorted.to_csv(output_csv, index=False)
+
+
+def construct_toehold_from_list(merged_list):
+    """
+    Input a list of merged sequences, each 45 nt: switch(30) + stem1(6) + stem2(9),
+    and return the full toehold switch DNA sequence list.
+
+    Args:
+    - merged_list: List[str], each element is a 45-nt merged sequence
+
+    Returns:
+    - List[str], each is a full toehold switch sequence (DNA)
+    """
+    # fixed scaffold
+    loop1 = "AACCAAACACACAAACGCAC"
+    loop2 = "AACAGAGGAGA"
+    atg = "ATG"
+    linker = "AACCTGGCGGCAGCGCAAAAGATGCG"
+    post_linker = "TAAAGGAGAA"
+
+    full_sequences = []
+
+    for merged_seq in merged_list:
+        if len(merged_seq) != 45:
+            raise ValueError(f"序列长度应为45 nt，但发现长度为 {len(merged_seq)}：{merged_seq}")
+        
+        switch = merged_seq[:30]
+        stem1 = merged_seq[30:36]
+        stem2 = merged_seq[36:]
+        
+        full_seq = loop1 + switch + loop2 + stem1 + atg + stem2 + linker + post_linker
+        # full_seq_rna = full_seq.replace("T", "U")
+        full_sequences.append(full_seq)
+
+    return full_sequences
+
 
 def build_structure_array(seq: str) -> np.ndarray:
     """
-    根据 RNA 序列构建结构数组（N × N），每个位置表示两碱基的配对潜力（以氢键数量为值）
+    Build an N×N structural array for an RNA sequence, where each position
+    encodes the base-pairing potential (in terms of hydrogen bond count).
 
-    参数:
-        seq (str): 输入 RNA 序列（如 'AUGCGAU...'）
+    Args:
+        seq (str): input RNA sequence (e.g. 'AUGCGAU...')
 
-    返回:
-        np.ndarray: 大小为 N×N 的结构数组，按配对规则编码为 0, 2, 3
+    Returns:
+        np.ndarray: N×N structural array, encoded as 0, 2, 3 according to rules
     """
-    seq = seq.upper().replace('T', 'U')  # 兼容 DNA 序列输入
+    seq = seq.upper().replace('T', 'U')  # also support DNA input
     N = len(seq)
     struct_array = np.zeros((N, N), dtype=int)
 
-    # 合法配对及其对应氢键数
+    # valid base pairs and corresponding hydrogen bond counts
     pair_map = {
         ('A', 'U'): 2, ('U', 'A'): 2,
         ('G', 'C'): 3, ('C', 'G'): 3,
@@ -40,454 +176,343 @@ def build_structure_array(seq: str) -> np.ndarray:
 
     return struct_array
 
-def make_dataset_sequences_bio(mRNAs, ons, offs, on_offs, out_label='off', structure=False):
 
-    features_array = []
-    labels_array = []
-    structures = []
+def encode_structure_list(seqList):
+    """
+    Construct full mRNA sequences from toehold segments and encode both
+    sequence and structure for prediction models.
+    """
 
-    max_on = max(ons)
-    max_off = max(offs)
-    max_on_off = max(on_offs)
+    # first build full mRNA sequences, then encode as input for the prediction model
+    seqList = construct_toehold_from_list(merged_list=seqList)
 
-    min_off = min(offs)
-    min_on = min(ons)
-    min_on_off = min(on_offs)
+    structures = np.array([build_structure_array(seq=mRNA) for mRNA in seqList])
+    X_seq = np.array([Dimer_split_seqs(sequence) for sequence in seqList])
 
-    print('max_on=',max_on)
-    print('min_on=',min_on)
+    return X_seq, structures
 
-    print('max_off=',max_off)
-    print('min_off=',min_off)
 
-    number = 0
+def compute_scaler(model_output):
 
-    for mRNA, on, off, on_off in zip(mRNAs, ons, offs, on_offs):
+    model_output = model_output.detach().cpu().numpy()
 
-        if len(mRNA) != 115:
+    return model_output
 
-            print('length = ', len(mRNA))
-            print('sequence = ',mRNA)
-            pdb.set_trace()
 
-            continue
+def create_argparser(promoters_number):
+
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    defaults = dict(num_images=promoters_number, device=device, schedule_low=1e-4,
+    schedule_high=0.02,out_init_conv_padding = 1)
+    defaults.update(script_utils.diffusion_defaults())
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_path", type=str)
+    parser.add_argument("--save_dir", type=str)
+    script_utils.add_dict_to_argparser(parser, defaults)
+
+    return parser
+
+
+def main_function(promoters_number, opt=False):
+
+    args = create_argparser(promoters_number=promoters_number).parse_args()
+
+    model_path = '../model/generated_switch_model.pth'
+    diffusion = script_utils.get_diffusion_from_args(args).to(device)
+    diffusion.load_state_dict(torch.load(model_path, weights_only=False))
+
+    prediction_on = torch.load('../model/prediction_on.pth', weights_only=False).to(device)
+    prediction_off = torch.load('../model/prediction_off.pth', weights_only=False).to(device)
+
+    for name, param in prediction_on.named_parameters():
+        print(f"{name}: {param.data}")
+        break
+
+    for name, param in prediction_off.named_parameters():
+        print(f"{name}: {param.data}")
+        break
+
+    sequences = []
+
+    # print('strat to generate sequences')
+    samples = diffusion.sample(args.num_images, device)
+    # print('end to generate sequences')
+
+    # print('samples.shape = ', samples.shape)
+    samples = samples.squeeze(dim=1)
+    # print('samples.shape = ', samples.shape)
+
+    samples = samples.to('cpu').detach().numpy()
+
+    for j in range(samples.shape[0]):
+
+        decoded_sequence = decode_one_hot(samples[j])
+        sequences.append("A" + decoded_sequence)
+
+    """
+    Start predicting expression levels
+    """
+
+    Dimer, struc = encode_structure_list(sequences)
+    Dimer = torch.tensor(Dimer).to(device)
+    struc = torch.tensor(struc).to(device)
+
+    print(Dimer.shape)
+    print(struc.shape)
+
+    ons = compute_scaler(prediction_on(Dimer, struc))  # predictions for ON state
+    offs = compute_scaler(prediction_off(Dimer, struc))  # predictions for OFF state
+
+    ons = np.array(ons)
+    ons = ons.squeeze()
+
+    offs = np.array(offs)
+    offs = offs.squeeze()
+
+    print('offs = ', offs)
+    
+
+    if opt:
+        all_sequences, all_ons, all_offs, all_radios = optimize_tensor_input_with_cmaes(
+            diffusion_model=diffusion,
+            predictor_on=prediction_on,
+            predictor_off=prediction_off,
+            number=promoters_number, 
+            sigma=0.5,
+            max_iter=30,
+            popsize=promoters_number
+        )
         
-        feature = Dimer_split_seqs(mRNA)  # 所有序列作为输入
-        feature = np.array(feature)
-        feature = feature.astype(int)
-        matrix = build_structure_array(seq=mRNA)
-        
-        # print(matrix.shape)
-        structures.append(matrix)
-        # pdb.set_trace()
-        
-        features_array.append(feature)
+        return all_ons, all_offs, all_sequences
 
-        label_on = (on - min_on)/(max_on -  min_on)
-        label_off  = (off - min_off)/(max_off -  min_off)
-        label_on_off = (on_off - min_on_off)/(max_on_off -  min_on_off)
-
-        if out_label == 'on':
-            
-            labels_array.append(label_on)
-
-        elif out_label == 'off':
-            labels_array.append(label_off)
-
-        elif out_label == 'on_off':
-            labels_array.append(label_on_off)
-
-        else:
-            print('flag is error')
-
-        number += 1
-    
-    print('number = ',number)
-    
-    
-    if structure:
-        return np.array(features_array),  np.array(structures), np.array(labels_array),
-    
     else:
-        return np.array(features_array), np.array(labels_array)
+         
+        return ons, offs, sequences
 
 
-def read_data(filename):
+def blackbox_objective_z_tensor(z_flat_np, diffusion_model, predictor_on, predictor_off, shape=(512, 1, 4, 44)):
 
-    # Loop1 - Switch  - Loop2 - Stem1 -  AUG  -  Stem2  -  Linker - Post-linker 
+    sequences = []
+    z_tensor = torch.tensor(z_flat_np, dtype=torch.float32).reshape(shape).to(device)
 
-    import math
+    # print('strat to generate sequences')
+    samples = diffusion_model.sample_opt(x=z_tensor,batch_size=shape[0], device=device)
+    # print('end to generate sequences')
 
-    mRNAs = []
-    ons = []
+    # print('samples.shape = ', samples.shape)
+    samples = samples.squeeze(dim=1)
+    # print('samples.shape = ', samples.shape)
 
-    offs = []
-    on_offs = []
+    samples = samples.to('cpu').detach().numpy()
 
-    df = pd.read_csv(filename)
+    for j in range(samples.shape[0]):
 
-    number = 0
+        decoded_sequence = decode_one_hot(samples[j])
+        sequences.append("A" + decoded_sequence)
 
-    for loop1,switch,loop2,stem1,atg,stem2,linker,post_linker,on,off,on_off in zip(df['loop1'], df['switch'], df['loop2'], df['stem1'], df['atg'], df['stem2'], df['linker'], df['post_linker'], df['ON'], df['OFF'], df['ON_OFF']):
-        
-        # 转化为 float 类型
-        on = float(on)
-        off = float(off)
-        on_off = float(on_off)
+    """
+    Compute RNA thermodynamic energy features
+    """
+    toehold_switch_sequence, Trigger_rnas, DeltaDeltaG_opens, MFE_selfs = process_toehold_structures(switch=sequences)
 
-        if math.isnan(on) or math.isnan(off) or math.isnan(on_off):
-            
-            print(f'on is {on}!!!\noff is {off}!!!\non_off is {on_off}!!!')
-            
-            continue
+    """
+    Predict expression levels
+    """
 
-        mRNAs.append(loop1 + switch + loop2 + stem1 + atg + stem2 + linker + post_linker)
-        ons.append(on)
-        offs.append(off)
-        on_offs.append(on_off)
+    Dimer, struc = encode_structure_list(sequences)
+    Dimer = torch.tensor(Dimer).to(device)
+    struc = torch.tensor(struc).to(device)
 
-        number += 1
+    print(Dimer.shape)
+    print(struc.shape)
 
-    print('number is ', number)
-    return mRNAs, ons, offs, on_offs
+    ons = compute_scaler(predictor_on(Dimer, struc))  # ON predictions
+    offs = compute_scaler(predictor_off(Dimer, struc))  # OFF predictions
 
-# 定义一个自定义数据集类
-class CustomDataset(Dataset):
-    def __init__(self, features, structures, labels):
+    ons = np.array(ons)
+    ons = ons.squeeze()
+    # ons = ons.tolist()
 
-        self.features = features
-        self.structures = structures
-        self.labels = labels
-        
+    offs = np.array(offs)
+    offs = offs.squeeze()
+    # offs = offs.tolist()
 
+    radios = ons - offs
+    mean_radio = np.nanmean(radios)  # ignore NaN when computing mean
+
+    # still a minimization problem (CMA-ES minimizes, so return negative mean_radio)
+    return -mean_radio, sequences, ons, offs, radios, toehold_switch_sequence, Trigger_rnas, DeltaDeltaG_opens, MFE_selfs
+
+
+def tensor_to_promoter(output_tensor):
     
-    def __len__(self):
-        return len(self.features)
+    samples = output_tensor.squeeze(dim=1)
+    samples = samples.to('cpu').detach().numpy()
+    sequences = []
     
-    def __getitem__(self, idx):
+    for i in range(samples.shape[0]):
 
-        feature = self.features[idx]
-        structure = self.structures[idx]
-        label = self.labels[idx]
-        
-
-
-        return feature, structure, label
-
-def file_detection(file_path):
-    # 目标文件路径
-    # file_path = "../result/on_good_record_metric_pearson_ori_dim.txt"
-
-    # 如果文件不存在，则创建
-    if not os.path.exists(file_path):
-        # 如果上级目录不存在，先创建目录
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        
-        # 创建空文件
-        with open(file_path, 'w') as f:
-            pass
-
-    print(f"文件已确保存在：{file_path}")
+        decoded_sequence = decode_one_hot(samples[i])
+        sequences.append(decoded_sequence)
+                    
+    return sequences
 
 
+def prediction_strength(prediction_model, promoter):
+    """
+    Args:
+        prediction_model: trained prediction model (input: encoded sequence → output: raw score)
+        promoter: list of promoter sequences (str)
 
-def train(params, features_array, structure_array, labels_array):
-       
+    Returns:
+        avg_strength: average expression strength after exponential transform (float)
+    """
+    # 1. sequence feature encoding
+    features = [np.array(Dimer_split_seqs(seq)) for seq in promoter]
+    features = np.array(features)  # shape: (N, F)
 
-    patience = 50
+    # 2. to Tensor
+    encoded_sequences = torch.tensor(features, dtype=torch.float32).to(device)
+
+    # 3. model prediction of raw scores
+    raw_scores = prediction_model(encoded_sequences)  # shape: (N,)
     
-    print('params = ',params)
+    # 4. normalization and exponential transform
+    min_strength = -8.6382
+    max_strength = 12.5883
+    raw_scores = raw_scores.squeeze().cpu().numpy()  # ensure numpy array
 
-    # 存储交叉验证的pearson相关系数
-    test_pearson_kfold = []
+    transformed_scores = 2 ** (raw_scores * (max_strength - min_strength) + min_strength)
+
+    # 5. average across promoters
+    avg_strength = transformed_scores.mean()
+    print('avg_strength = ',avg_strength)
+
+    return avg_strength
+
+
+def optimize_tensor_input_with_cmaes(diffusion_model, predictor_on, predictor_off, number=512, 
+                                     sigma=0.5, max_iter=5, popsize=512):
+    """
+    Use CMA-ES to optimize a tensor input (e.g. soft one-hot representation)
+    to maximize the predicted expression strength.
+
+    shape: shape of the optimized tensor, e.g. (64, 4, 44)
+    """
+    shape=(number, 1, 4, 44)
+    x = torch.randn(number, 1, 4, 44, device=device)
+    x_flat = x.flatten().cpu()
+    x = np.array(x_flat)
+
+    es = cma.CMAEvolutionStrategy(x, sigma, {'popsize': popsize})
+
+    best_score = -float('inf')
+    best_z = None
+    best_seq = None
+
+    all_sequences = []
+    all_ons = []
+    all_offs = []
+    all_radios = []
+
+    for gen in range(max_iter):
+
+        solutions = es.ask()
+        scores = []
+
+        for s in solutions:
+
+            score, sequences, ons, offs, radios, toehold_switch_sequence, Trigger_rnas, DeltaDeltaG_opens, MFE_selfs  = blackbox_objective_z_tensor(s, diffusion_model, predictor_on, predictor_off, shape=shape)
+
+            df = pd.DataFrame({
+                'on': ons,
+                'off': offs,
+                'radio': radios,
+                'sequence': sequences,
+                'toehold_switch_sequence': toehold_switch_sequence,
+                'Trigger_rnas': Trigger_rnas,
+                'DeltaDeltaG_opens': DeltaDeltaG_opens,
+                'MFE_selfs':MFE_selfs
+                })
+            
+            # get today's month and day, e.g. "0921"
+            today = datetime.now().strftime("%m%d")
+
+            # construct result directory path
+            result_dir = f"../result-{today}/"
+            os.makedirs(result_dir, exist_ok=True)  # create directory if it does not exist
+
+            # save CSV, with iteration and score in filename
+            df.to_csv(os.path.join(result_dir, f"output_opt_iter={gen}_score={score}.csv"), index=False)
+
+            all_sequences += sequences
+            all_offs += offs.tolist()
+            all_ons += ons.tolist()
+            all_radios += radios.tolist()
+
+            scores.append(score)
+
+            # track best score
+            if -score > best_score:
+
+                best_score = -score
+                # best_z = torch.tensor(s, dtype=torch.float32).reshape(shape).to('cuda')
+
+                # with torch.no_grad():
+                #     best_seq = diffusion_model(best_z)
+
+        es.tell(solutions, scores)
+        print(f"[Gen {gen}] best average score = {best_score:.4f}")
+
+    # return best_z, best_seq, best_score
+    return all_sequences, all_ons, all_offs, all_radios
+
+
+def divide_lists(ons: list, offs: list) -> list:
+    if len(ons) != len(offs):
+        raise ValueError("两个列表长度不一致")
     
-    file_detection(file_path='../result/off_good_record_metric_pearson_ori_dim_structure.txt')
-    file_detection(file_path='../result/off_good_record_metric_pearson_mse_ori_dim_structure.txt')
-    file_detection(file_path='../result/off_good_record_metric_mse_ori_dim_structure.txt')
-
-   # 循环遍历每个折叠
-    for fold, (train_indices, val_indices) in enumerate(kf.split(features_array)):
-
-        best_val_loss = float('inf')  # 初始最优验证损失
-        no_improve_epochs = 0  # 验证损失未改进的回合数
-
-        print(f"Fold {fold + 1}/{k_folds}")
-
-        print('size of train datset is: ', len(train_indices))
-        print('size of test datset is: ', len(val_indices))
-
-        # 创建自定义数据集对象
-        train_dataset = CustomDataset(features_array[train_indices], structure_array[train_indices], labels_array[train_indices])
-        test_dataset = CustomDataset(features_array[val_indices], structure_array[val_indices], labels_array[val_indices])
-
-        # 创建数据加载器
-        train_loader = DataLoader(train_dataset, batch_size=params['train_batch_size'], shuffle=True)
-        test_loader = DataLoader(test_dataset, batch_size=params['train_batch_size'], shuffle=False)
-
-        # 查看数据集长度
-        print('训练集长度 = ',len(train_loader))
-        print('测试集长度 = ',len(test_loader))
-
-        #实例模型
-        print('start compose simple gan model')
-        gen = predict_transformerv2.Predict_translation_structure(params=params).to(device)
-
-        initialize_weights(gen)
-        print('successful compose simple gan model')
-
-        #定义优化器
-        opt_gen = torch.optim.Adam(gen.parameters(), lr=params['train_base_learning_rate'], weight_decay=params['l2_regularization'])
-        loss_fc = torch.nn.MSELoss()
-
-        loss_train =[]
-        loss_test = []
-
-        metric = []
-        all_mse = []
-        all_r2 = []
-        all_spearman_corr = []
-
-        '''开始训练'''
-        for epoch in range(params['train_epochs_num']):
-            
-            
-            # 调节学习速率
-            if epoch > 0 and epoch % 100 == 0:
-
-                for param_group in opt_gen.param_groups:
-
-                    print('调节学习速率')
-                    param_group['lr'] = param_group['lr'] / 2.0
-
-            loss_train_one_epoch = 0
-            loss_test_one_epoch = 0
-
-            loss_mse = 0
-            loss_pier = 0
-            
-            # 开始训练
-            gen.train()
-
-            for data, struc, target in train_loader:
-                
-                data = data.to(device)
-                target = target.to(device)
-                struc = struc.to(device)
-                
-                # print('data.shape = ', data.shape)
-                # print('target.shape = ', target.shape)
-                # print('struc.shape = ', struc.shape)
-
-                output = gen(data, struc)
-                output = torch.squeeze(output, dim=1)
-
-                loss_gen = loss_fc(target.float(), output.float())
-                loss_pi = loss_pierxun(target=target.float(),output=output.float())
-
-                # print('*****loss_gen = ******',loss_gen)
-                loss_gen = loss_gen.float()
-                loss_pi = loss_pi.float()
-
-                if loss_kind == 'pearson':
-                    loss_all = -loss_pi
-
-                elif loss_kind == 'pearson_mse':
-                    loss_all = -loss_pi + loss_gen
-                
-                elif loss_kind == 'mse':
-                    loss_all = loss_gen
-
-                else:
-                    print('输入的损失函数类型有误，请检查！！！')
-
-                opt_gen.zero_grad()
-                loss_all.backward()
-                opt_gen.step()
-
-                loss_train_one_epoch += loss_all.item()
-                loss_mse += loss_gen.item()
-                loss_pier += loss_pi.item()
-                
-            loss_train.append(loss_train_one_epoch/len(train_loader))
-
-            if epoch % 10 == 0:
-                print(
-                        f"Epoch[{epoch}/{params['train_epochs_num']}] ****Train loss: {loss_train_one_epoch/len(train_loader):.6f}****MSE loss: {loss_mse/len(train_loader):.6f}****Pierxun loss: {loss_pier/len(train_loader):.6f}"
-                        )
-            
-            # 测试集开始测试
-            gen.eval()
-
-            targets = []
-            outputs = []
-
-            for data, struc, target in test_loader:
-                
-                data = data.to(device)
-                target = target.to(device)
-                struc = struc.to(device)
-
-                output = gen(data, struc)
-                output = torch.squeeze(output, dim=1)
-                loss_gen = loss_fc(target, output)
-                
-
-                targets.append(target.detach().cpu().numpy())
-                outputs.append(output.detach().cpu().numpy())
-
-                loss_test_one_epoch += loss_gen.item()
-            
-            correlation_coefficient = compute_correlation_coefficient(np.concatenate(targets, axis=0), np.concatenate(outputs, axis=0) )
-            mse, r2, spearman_corr = evaluate_regression_metrics(np.concatenate(targets, axis=0), np.concatenate(outputs, axis=0) )
-            # pdb.set_trace()
-
-            loss_test.append(loss_test_one_epoch/len(test_loader))
-
-            # 检查验证损失是否改进
-            if loss_test_one_epoch/len(test_loader) < best_val_loss:
-                best_val_loss = loss_test_one_epoch/len(test_loader)
-
-                no_improve_epochs = 0  # 重置未改进计数器
-            else:
-                no_improve_epochs += 1
-
-            if epoch % 10 == 0:
-                
-                print(
-                        f"Epoch[{epoch}/{params['train_epochs_num']}] ****Test loss: {loss_test_one_epoch/len(test_loader):.6f}********test correlation_coefficient:{correlation_coefficient}"
-                        )
-            
-            metric.append(correlation_coefficient)
-            all_mse.append(mse)
-            all_r2.append(r2)
-            all_spearman_corr.append(spearman_corr)
-
-            # 保存loss和预测模型
-            
-            global pcc  # 显式声明 pcc 为全局变量
-            if correlation_coefficient > pcc:
-
-                pcc = correlation_coefficient
-                
-                if loss_kind == 'pearson':
-                    torch.save(gen,'../model/off_pearson_structure_{0}_pcc={1:.4f}.pth'.format(epoch, correlation_coefficient))
-                
-                elif loss_kind == 'pearson_mse':
-                    torch.save(gen,'../model/off_pearson_mse_structure_{0}_pcc={1:.4f}.pth'.format(epoch, correlation_coefficient))
-                
-                elif loss_kind == 'mse':
-                    torch.save(gen,'../model/off_mse_structure_{0}_pcc={1:.4f}.pth'.format(epoch, correlation_coefficient))
-                
-                else:
-                    print('损失函数类型出错，请检查！！！！')
-
-            # 学习率衰减逻辑
-            if no_improve_epochs > 0 and no_improve_epochs % 10:
-
-                for param_group in opt_gen.param_groups:
-                    param_group['lr'] = param_group['lr']*0.9
-
-
-            # 提前停止逻辑
-            if no_improve_epochs >= patience:
-                print(f"Early stopping at epoch {epoch + 1}")
-                break
-
-
-        # 存储指标
-        dict2 = {'correlation_coefficient':max(metric),'mse':min(all_mse),'r2':max(all_r2),'spearman_corr':max(all_spearman_corr),'min_train_loss':min(loss_train),'min_test_loss':min(loss_test),'k_fold':fold+1}
-        
-        
-        if loss_kind == 'pearson':
-            write_good_record(dict1=params,dict2=dict2,file_path='../result/off_good_record_metric_pearson_ori_dim_structure.txt')# return  min(loss_test)
-        
-        elif loss_kind == 'pearson_mse':
-            write_good_record(dict1=params,dict2=dict2,file_path='../result/off_good_record_metric_pearson_mse_ori_dim_structure.txt')# return  min(loss_test)
-        
-        elif loss_kind == 'mse':
-            write_good_record(dict1=params,dict2=dict2,file_path='../result/off_good_record_metric_mse_ori_dim_structure.txt')# return  min(loss_test)
-        
+    result = []
+    for on, off in zip(ons, offs):
+        if off == 0:
+            result.append(float('inf'))  # or use 0, None, np.nan, etc.
         else:
-            print('损失函数类型出错，请检查！！！！')
-        
-        test_pearson_kfold.append(max(metric))
-
-    return -max(test_pearson_kfold)
+            result.append(on / off)
+    
+    return result
 
 
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+torch.cuda.set_device(0)
 
-# pcc指标
-pcc = 0.7
-
-# train(params,train_dataset,test_dataset)
 if __name__ == '__main__':
- 
-    # 处理数据
-    filename = '/home/leixin/mcp_server/switch/Synthesizing_mRNA/data/Toehold_mRNA_Dataset_clean.csv'
-    mRNAs, ons, offs, on_offs = read_data(filename=filename)
-    features_array, structure_array, labels_array = make_dataset_sequences_bio(mRNAs, ons, offs, on_offs,out_label='off',structure=True)
 
-    # 定义K折交叉验证
-    k_folds = 5
-    kf = KFold(n_splits=k_folds, shuffle=True)
+    opt = True
+    promoter_number = 32
+    ons = []
+    sequences = []
+    offs = []
 
-    # 确定训练的GPU编号
-    params = {'device_num': 6, 'dropout_rate1': 0.5, 'dropout_rate2': 0.2, 'dropout_rate_fc': 0.48, 'embedding_dim1': 128, 'embedding_dim2': 128, 'fc_hidden1': 144, 'fc_hidden2': 8, 'hidden_dim1': 64, 'hidden_dim2': 512, 'l2_regularization': 5e-05, 'latent_dim': 512, 'num_head1': 8, 'num_head2': 16, 'seq_len': 115, 'train_base_learning_rate': 0.0014, 'train_batch_size': 512, 'train_epochs_num': 500, 'transformer_num_layers1': 3, 'transformer_num_layers2': 10}
-    # params = {'device_num': 2, 'dropout_rate1': 0.3258494549467406, 'dropout_rate2': 0.2974783660130027, 'dropout_rate_fc': 0.3134874750986153, 'embedding_dim1': 64, 'embedding_dim2': 256, 'fc_hidden1': 109, 'fc_hidden2': 56, 'hidden_dim1': 1024, 'hidden_dim2': 256, 'l2_regularization': 5e-05, 'latent_dim1': 64, 'latent_dim2': 256, 'num_head1': 8, 'num_head2': 8, 'seq_len': 20, 'train_base_learning_rate': 0.0010350836441350173, 'train_batch_size': 512, 'train_epochs_num': 500, 'transformer_num_layers1': 4, 'transformer_num_layers2': 8}
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    torch.cuda.set_device(params['device_num'])
-    print('device =',device)
+    on, off, sequence = main_function(promoters_number=promoter_number,opt=opt)
 
-    # 确定loss种类
-    # loss_kind = ['pearson', 'pearson_mse', 'mse']
-    loss_kind = 'pearson_mse'
-    # loss_kind = 'mse'
+    ons += on.tolist()
+    offs += off.tolist()
+    sequences += sequence
 
-    # 试运行一次主函数
-    train(params, features_array=features_array, structure_array = structure_array, labels_array=labels_array)
+    df = pd.DataFrame({
+    'on': on,
+    'off':off,
+    'radio':on-off,
+    'sequence': sequences
+    })
 
-    '''开始搜索'''
-    # 定义超参数的搜索空间
-    space = {
-
-        'train_batch_size':hp.choice('train_batch_size',[512]),
-        'seq_len':hp.choice('seq_len',[115]),  
-        'device_num':hp.choice('device_num',[6]),
-        'train_epochs_num':hp.choice('train_epochs_num',[500]),
-
-        'train_base_learning_rate': hp.loguniform('train_base_learning_rate', -6, -4),
-
-        'dropout_rate1': hp.uniform('dropout_rate1', 0.3, 0.6),
-        'dropout_rate2': hp.uniform('dropout_rate2', 0.3, 0.6),
-        'dropout_rate_fc': hp.uniform('dropout_rate_fc', 0.3, 0.6),
-
-        'transformer_num_layers1': hp.randint('transformer_num_layers1',1, 12),
-        'transformer_num_layers2': hp.randint('transformer_num_layers2',1, 12),
+    if opt:
+        df_sorted = df.sort_values(by='radio', ascending=False).head(promoter_number)
+        df_sorted.to_csv('../result/opt_output.csv', index=False)
+         
+    else:
         
-        # 'l2_regularization': hp.loguniform('l2_regularization', -8, -2),
-        'l2_regularization': hp.choice('l2_regularization', [1e-4, 5e-5,2e-5,1e-5]),
-
-        'num_head1': hp.choice('num_head1', [2, 4, 8, 16]),
-        'num_head2': hp.choice('num_head2', [2, 4, 8, 16]),
-
-        'hidden_dim1': hp.choice('hidden_dim1',[64,128,256,512]),
-        'latent_dim': hp.choice('latent_dim', [64,128, 256,512]),
-        'embedding_dim1': hp.choice('embedding_dim1',[64,128, 256,512]),
-
-        'hidden_dim2': hp.choice('hidden_dim2',[128,256,512]),
-        'embedding_dim2': hp.choice('embedding_dim2',[64, 128, 256,512]),
-
-        'fc_hidden1': hp.randint('fc_hidden1',64, 256),
-        'fc_hidden2': hp.randint('fc_hidden2',16, 64)
-    }
-
-    # 创建Trials对象以跟踪优化过程
-    trials = Trials()
-
-    # 将训练函数包装为适用于hyperopt的目标函数
-    objective = lambda params: train(params, features_array=features_array, structure_array = structure_array, labels_array=labels_array)
-    # 运行优化
-    best = fmin(fn=objective, space=space, algo=tpe.suggest, max_evals=1000, trials=trials)
-
-    # 打印最佳参数
-    print('最佳参数:', best)
+        # sort by strength in descending order and keep the top 3×promoter_number rows
+        df_sorted = df.sort_values(by='radio', ascending=False).head(promoter_number*3)
+        df_sorted.to_csv('../result/output.csv', index=False)
