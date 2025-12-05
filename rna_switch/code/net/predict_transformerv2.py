@@ -13,7 +13,7 @@ class ResidualBlock(nn.Module):
         super(ResidualBlock, self).__init__()
         self.num_channels = num_channels
 
-        # 定义两个卷积层
+        # define two convolutional layers
         self.conv1 = nn.Conv1d(num_channels, num_channels, kernel_size=kernel_size, padding=padding)
         self.conv2 = nn.Conv1d(num_channels, num_channels, kernel_size=kernel_size, padding=padding)
         self.batch_norm = nn.BatchNorm1d(num_channels) 
@@ -52,7 +52,7 @@ class Predict_translation_off(torch.nn.Module):
         self.ac = nn.LeakyReLU()
         self.dropout = nn.Dropout(p=self.dropout_rate_fc)
         
-        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'], params['fc_hidden1']) # 其中3+3+2+1=9为生物信息的预留位置
+        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'], params['fc_hidden1']) # 3+3+2+1=9 reserved for additional biological features
         self.final_fc2 = nn.Linear(params['fc_hidden1'],params['fc_hidden2'])
         self.final_fc3 = nn.Linear(params['fc_hidden2'],1)
 
@@ -78,7 +78,7 @@ class Predict_translation_off(torch.nn.Module):
         dim_pos = self.trans_dim_pos(embeded_dim)
         # print('end transformer encoder')
         
-        output = torch.cat((ori_pos, dim_pos), dim=-1) # 将transformer的输出和生物信息相融合
+        output = torch.cat((ori_pos, dim_pos), dim=-1) # concatenate transformer outputs (and optionally biological features)
         # output = self.mlp(ori_dim_pos)
         
         output = self.final_fc1(output)
@@ -112,11 +112,11 @@ class Predict_translation(torch.nn.Module):
         self.embedding_ori = torch.nn.Embedding(100, params['embedding_dim1'])
         self.embedding_dim = torch.nn.Embedding(100, params['embedding_dim2'])
         
-        # dropout层
+        # dropout layer
         self.ac = nn.LeakyReLU()
         self.dropout = nn.Dropout(p=self.dropout_rate_fc)
         
-        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'], params['fc_hidden1']) # 其中3+3+2+1=9为生物信息的预留位置
+        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'], params['fc_hidden1']) # 3+3+2+1=9 reserved for additional biological features
         self.final_fc2 = nn.Linear(params['fc_hidden1'],params['fc_hidden2'])
         self.final_fc3 = nn.Linear(params['fc_hidden2'],1)
         # self.bio_fc1 = nn.Linear(13, params['fc_hidden1'])
@@ -135,7 +135,7 @@ class Predict_translation(torch.nn.Module):
         dim_pos = self.trans_dim_pos(embeded_dim)
 
         
-        output = torch.cat((ori_pos, dim_pos), dim=-1) # 将transformer的输出和生物信息相融合
+        output = torch.cat((ori_pos, dim_pos), dim=-1) # concatenate transformer outputs (and optionally biological features)
         
         output = self.final_fc1(output)
         output = self.ac(output)
@@ -158,12 +158,12 @@ class CNN1D_Flatten(nn.Module):
     def __init__(self, fc_hidden=512):
         super(CNN1D_Flatten, self).__init__()
         self.conv1 = nn.Conv1d(in_channels=115, out_channels=128, kernel_size=7, stride=1, padding=3)
-        self.pool1 = nn.MaxPool1d(kernel_size=5, stride=5)  # 输出 23
+        self.pool1 = nn.MaxPool1d(kernel_size=5, stride=5)  # output length 23
 
         self.conv2 = nn.Conv1d(128, 256, kernel_size=5, stride=1, padding=2)
-        self.pool2 = nn.MaxPool1d(kernel_size=5, stride=5)  # 输出 4
+        self.pool2 = nn.MaxPool1d(kernel_size=5, stride=5)  # output length 4
 
-        self.conv3 = nn.Conv1d(256, 512, kernel_size=3, stride=1, padding=1)  # 输出仍为 4
+        self.conv3 = nn.Conv1d(256, 512, kernel_size=3, stride=1, padding=1)  # output length remains 4
 
         # 512 × 4 = 2048
         self.fc = nn.Linear(2048, fc_hidden)
@@ -177,11 +177,11 @@ class CNN1D_Flatten(nn.Module):
         x = F.relu(self.conv2(x))
         x = self.pool2(x)
         # print(x.shape)
-        x = F.relu(self.conv3(x))  # 输出形状 [B, 256, L]
+        x = F.relu(self.conv3(x))  # output shape [B, 256, L]
         # print(x.shape)
-        x = x.flatten(start_dim=1)  # 展平为 [B, 256 * L]
+        x = x.flatten(start_dim=1)  # flatten to [B, 256 * L]
         # print(x.shape)
-        x = self.fc(x)              # 映射为 [B, fc_hidden]
+        x = self.fc(x)              # map to [B, fc_hidden]
 
         return x
 
@@ -195,26 +195,26 @@ class CrossAttentionFusionSameDim(nn.Module):
         self.attn2 = nn.MultiheadAttention(embed_dim=dim, num_heads=num_heads, dropout=dropout, batch_first=True)
         self.attn3 = nn.MultiheadAttention(embed_dim=dim, num_heads=num_heads, dropout=dropout, batch_first=True)
 
-        self.fusion = nn.Linear(dim * 3, dim)  # 三个 attention 输出融合
+        self.fusion = nn.Linear(dim * 3, dim)  # fuse three attention outputs
 
     def forward(self, x1, x2, x3):
-        # 输入：[B, D] → [B, 1, D]
+        # input: [B, D] → [B, 1, D]
         x1 = x1.unsqueeze(1)
         x2 = x2.unsqueeze(1)
         x3 = x3.unsqueeze(1)
 
-        # Cross Attention：每个向量 attends 另一个
+        # cross attention: each vector attends another
         o1, _ = self.attn1(query=x1, key=x2, value=x2)  # x1 attends x2
         o2, _ = self.attn2(query=x2, key=x3, value=x3)  # x2 attends x3
         o3, _ = self.attn3(query=x3, key=x1, value=x1)  # x3 attends x1
 
-        # 拼接输出 + 降维
+        # concatenate outputs and project back
         fused = torch.cat([o1, o2, o3], dim=-1)  # [B, 1, 3*D]
         fused = self.fusion(fused)              # [B, 1, D]
         return fused.squeeze(1)                 # [B, D]
 
 
-class Predict_translation_structure(torch.nn.Module): # sequence expert + dimer expert + 二级结构
+class Predict_translation_structure(torch.nn.Module): # sequence expert + dimer expert + secondary structure expert
     
     def __init__(self,params):
         super(Predict_translation_structure, self).__init__()
@@ -229,12 +229,12 @@ class Predict_translation_structure(torch.nn.Module): # sequence expert + dimer 
         self.embedding_ori = torch.nn.Embedding(100, params['embedding_dim1'])
         self.embedding_dim = torch.nn.Embedding(100, params['embedding_dim2'])
         
-        # dropout层
+        # dropout layer
         self.ac = nn.LeakyReLU()
         self.dropout = nn.Dropout(p=self.dropout_rate_fc)
         self.CrossAttention = CrossAttentionFusionSameDim(dim=params['latent_dim'])
         
-        self.final_fc1 = nn.Linear(params['latent_dim'], params['fc_hidden1']) # 其中3+3+2+1=9为生物信息的预留位置
+        self.final_fc1 = nn.Linear(params['latent_dim'], params['fc_hidden1']) # 3+3+2+1=9 reserved for additional biological features
         self.final_fc2 = nn.Linear(params['fc_hidden1'],params['fc_hidden2'])
         self.final_fc3 = nn.Linear(params['fc_hidden2'],1)
  
@@ -255,7 +255,7 @@ class Predict_translation_structure(torch.nn.Module): # sequence expert + dimer 
         dim_pos = self.trans_dim_pos(embeded_dim)
 
         
-        # output = torch.cat((ori_pos, dim_pos), dim=-1) # 将transformer的输出和生物信息相融合
+        # output = torch.cat((ori_pos, dim_pos), dim=-1) # concatenate transformer outputs (and optionally biological features)
         
         output = self.CrossAttention(dim_pos, ori_pos, structure)
         
@@ -278,7 +278,7 @@ class CNN_OneHot_Seq(nn.Module):
     def __init__(self, input_length=115, task_type='regression'):
         super(CNN_OneHot_Seq, self).__init__()
 
-        # 输入通道为4（A、C、G、U 的 one-hot 编码）
+        # input channels = 4 (one-hot encoding of A, C, G, U)
         self.conv1 = nn.Conv1d(4, 32, kernel_size=3, padding=1)
         self.conv2 = nn.Conv1d(32, 64, kernel_size=3, padding=1)
         self.conv3 = nn.Conv1d(64, 128, kernel_size=3, padding=1)
@@ -288,7 +288,7 @@ class CNN_OneHot_Seq(nn.Module):
         self.bn3 = nn.BatchNorm1d(128)
         self.dropout = nn.Dropout(0.3)
 
-        # 展平后尺寸：128 × input_length
+        # flattened size: 128 × input_length
         self.flattened_dim = 128 * input_length
         self.fc1 = nn.Linear(self.flattened_dim, 16)
         self.fc2 = nn.Linear(16, 16)
@@ -298,7 +298,7 @@ class CNN_OneHot_Seq(nn.Module):
         if task_type == 'regression':
             self.out = nn.Linear(16, 1)  # ON, OFF, ON/OFF
         elif task_type == 'classification':
-            self.out = nn.Linear(16, 2)  # softmax 输出
+            self.out = nn.Linear(16, 2)  # softmax output
         else:
             raise ValueError("task_type must be 'regression' or 'classification'")
 
