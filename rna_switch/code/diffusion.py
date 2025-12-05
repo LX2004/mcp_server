@@ -13,14 +13,14 @@ class GaussianDiffusion(nn.Module):
     __doc__ = r"""Gaussian Diffusion model. Forwarding through the module returns diffusion reversal scalar loss tensor.
 
     Input:
-        x: tensor of shape (N, img_channels, *img_size)
-        y: tensor of shape (N)
+        x: tensor of shape (N, img_channels, *img_size)
+        y: tensor of shape (N)
     Output:
         scalar loss tensor
     Args:
-        model (nn.Module): model which estimates diffusion noise
+        model (nn.Module): model which estimates diffusion noise
         img_size (tuple): image size tuple (H, W)
-        img_channels (int): number of image channels
+        img_channels (int): number of image channels
         betas (np.ndarray): numpy array of diffusion betas
         loss_type (string): loss type, "l1" or "l2"
         ema_decay (float): model weights exponential moving average decay
@@ -108,13 +108,13 @@ class GaussianDiffusion(nn.Module):
         if y is not None and batch_size != len(y):
             raise ValueError("sample batch size different from length of given y")
 
-        x = torch.randn(batch_size, self.img_channels, *self.img_size, device=device) # 通过随机采样得到xT
+        x = torch.randn(batch_size, self.img_channels, *self.img_size, device=device) # obtain x_T by random sampling
         
-        for t in range(self.num_timesteps - 1, -1, -1): # 进行T-1步的去噪过程
+        for t in range(self.num_timesteps - 1, -1, -1): # perform T-1 denoising steps
 
-            t_batch = torch.tensor([t], device=device).repeat(batch_size) # 创建一个大小为 (batch_size,) 的张量，其中每个元素都是当前时间步 t。
-                                                                           # 这个张量用于在去噪过程中区分当前的时间步。
-            x = self.remove_noise(x, t_batch, y, use_ema) # 使用unet去除噪音
+            t_batch = torch.tensor([t], device=device).repeat(batch_size) # create a tensor of shape (batch_size,) where each element is the current timestep t
+                                                                           # this tensor is used to indicate the current timestep during denoising
+            x = self.remove_noise(x, t_batch, y, use_ema) # use U-Net to remove noise
 
             if t > 0:
                 x += extract(self.sigma, t_batch, x.shape) * torch.randn_like(x)
@@ -125,13 +125,13 @@ class GaussianDiffusion(nn.Module):
     def sample_opt(self, batch_size, device, y=None, use_ema=True,x=None):
 
         if  x.numel() == 0:
-            x = torch.randn(batch_size, self.img_channels, *self.img_size, device=device) # 通过随机采样得到xT
+            x = torch.randn(batch_size, self.img_channels, *self.img_size, device=device) # obtain x_T by random sampling
         
-        for t in range(self.num_timesteps - 1, -1, -1): # 进行T-1步的去噪过程
+        for t in range(self.num_timesteps - 1, -1, -1): # perform T-1 denoising steps
 
-            t_batch = torch.tensor([t], device=device).repeat(batch_size) # 创建一个大小为 (batch_size,) 的张量，其中每个元素都是当前时间步 t。
-                                                                           # 这个张量用于在去噪过程中区分当前的时间步。
-            x = self.remove_noise(x, t_batch, y, use_ema) # 使用unet去除噪音
+            t_batch = torch.tensor([t], device=device).repeat(batch_size) # create a tensor of shape (batch_size,) where each element is the current timestep t
+                                                                           # this tensor is used to indicate the current timestep during denoising
+            x = self.remove_noise(x, t_batch, y, use_ema) # use U-Net to remove noise
 
             if t > 0:
                 x += extract(self.sigma, t_batch, x.shape) * torch.randn_like(x)
@@ -164,16 +164,16 @@ class GaussianDiffusion(nn.Module):
         )   
 
     def get_losses(self, x, t, y):
-        noise = torch.randn_like(x) # 加入的噪音
+        noise = torch.randn_like(x) # added noise
 
-        perturbed_x = self.perturb_x(x, t, noise) # 噪音叠加得到xt
+        perturbed_x = self.perturb_x(x, t, noise) # obtain x_t by adding noise
 
         # print('x.shape = ', x.shape)
         # print('xt.shape = ', perturbed_x.shape)
 
-        estimated_noise = self.model(perturbed_x, t, y) # 输入xt和t，通过unet预测加入的噪音
+        estimated_noise = self.model(perturbed_x, t, y) # input x_t and t, U-Net predicts the added noise
 
-        if self.loss_type == "l1":   # 计算预测噪音和实际噪音的区别
+        if self.loss_type == "l1":   # compute the difference between predicted noise and true noise
             loss = F.l1_loss(estimated_noise, noise)
         elif self.loss_type == "l2":
             loss = F.mse_loss(estimated_noise, noise)
