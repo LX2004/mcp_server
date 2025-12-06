@@ -2,14 +2,14 @@ import argparse
 import datetime
 import torch
 import numpy as np
-from torch.utils.data import DataLoader,Dataset
+from torch.utils.data import DataLoader, Dataset
 # from torchvision import datasets
 import script_utils
 from torch.optim.lr_scheduler import StepLR
 from utils import *
 import pdb
 
-'''继承数据集，自定义所需的数据集'''
+"""Custom dataset class"""
 class CustomDataset(Dataset):
     def __init__(self, data_folder):
         self.data = data_folder
@@ -23,17 +23,18 @@ class CustomDataset(Dataset):
 
 
 def get_sequence_list_from_csv(file_path):
-    # 读取指定列
+    # Read specified columns
     df = pd.read_csv(file_path, usecols=["switch", "stem1", "stem2"])
     
-    # 将每行三个元素拼接成一个字符串，形成列表
+    # Concatenate three fields in each row into a single string
     sequence_list = df.apply(lambda row: row['switch'] + row['stem1'] + row['stem2'], axis=1).tolist()
     
     return sequence_list
 
 def main():
 
-    loss_flag = 0.15 # loss低于该值开始存储模型，只存储一个损失最低的模型
+    # Start saving the best model once loss is below this threshold
+    loss_flag = 0.15
     test_loss_save = []
 
     args = create_argparser().parse_args()
@@ -51,15 +52,17 @@ def main():
 
         batch_size = args.batch_size
 
-        # 定义学习率调度器，每100回合将学习率乘以0.5
+        # LR scheduler, multiply LR by 0.5 every 100 epochs
         scheduler = StepLR(optimizer, step_size=100, gamma=0.5)
 
-        '''准备数据集'''
-        all_sample = get_sequence_list_from_csv(file_path='/home/liangce/lx/Promoter_mRNA_synthetic/data/Toehold_mRNA_Dataset_cleanplus.csv')
-        train_size = int(0.8 *  len(all_sample))  # 90% 用于训练集
-        print(all_sample[0],len(all_sample[0]))
+        """Prepare dataset"""
+        all_sample = get_sequence_list_from_csv(
+            file_path='/home/liangce/lx/Promoter_mRNA_synthetic/data/Toehold_mRNA_Dataset_cleanplus.csv'
+        )
+        train_size = int(0.8 * len(all_sample))  # 80% for training set
+        print(all_sample[0], len(all_sample[0]))
         
-        # 对训练集进行one-hot编码
+        # One-hot encode training set
         encoded_sequence_train = []
 
         for sequence in all_sample[:train_size]:
@@ -67,10 +70,10 @@ def main():
             if len(sequence) != 45:
                 print('error!!!')
 
-            encoded_sequence = one_hot_encoding(sequence[1:]) # 舍弃了第一个A
+            encoded_sequence = one_hot_encoding(sequence[1:])  # discard the first 'A'
             encoded_sequence_train.append(encoded_sequence)
             
-        # 对测试集进行one-hot编码
+        # One-hot encode test set
         encoded_sequence_test = []
         for sequence in all_sample[train_size:]:
 
@@ -89,16 +92,14 @@ def main():
         train_arrary = np.expand_dims(train_arrary, axis=1)
         test_arrary = np.expand_dims(test_arrary, axis=1)
 
-        # 检查形状
-        print("插入维度后的 train_array 形状：", train_arrary.shape)
-        print("插入维度后的 test_array 形状：", test_arrary.shape)
+        # Check shapes after expanding
+        print("train_array shape after expanding: ", train_arrary.shape)
+        print("test_array shape after expanding: ", test_arrary.shape)
         
         train_dataset = CustomDataset(train_arrary)
         test_dataset = CustomDataset(test_arrary)
 
-        '''#创建数据加载器 '''
-
-        # 创建训练集和测试集的DataLoader
+        """Create data loaders"""
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
 
@@ -106,20 +107,15 @@ def main():
 
         for iteration in range(1, args.iterations + 1):
 
-            # train_loss_epoch = 0
-
             diffusion.train()
 
-            # 开始训练
+            # Training loop
             for x in train_loader:
-                # x, y = next(train_loader)
                 x = x.to(device)
-                # y = y.to(device)
                 
                 loss = diffusion(x)
 
                 acc_train_loss += loss.item()
-                # train_loss_epoch += loss.item()
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -129,7 +125,7 @@ def main():
 
             print(f'epoch ={iteration}, train loss = {acc_train_loss}')
 
-            # 更新学习率
+            # Update learning rate
             scheduler.step()
             
             if iteration % args.log_rate == 0:
@@ -169,18 +165,23 @@ def main():
 
             if iteration % args.checkpoint_rate == 0:
 
-                test_loss_filename = f"{args.log_dir}/{args.project_name}-{args.run_name}-iteration-{iteration}--kernel={1+2*args.out_init_conv_padding}--test_loss.npy"
-                model_filename = f"{args.log_dir}/{args.project_name}-{args.run_name}-iteration-{iteration}--kernel={1+2*args.out_init_conv_padding}--model.pth"
+                test_loss_filename = (
+                    f"{args.log_dir}/{args.project_name}-{args.run_name}-iteration-"
+                    f"{iteration}--kernel={1+2*args.out_init_conv_padding}--test_loss.npy"
+                )
+                model_filename = (
+                    f"{args.log_dir}/{args.project_name}-{args.run_name}-iteration-"
+                    f"{iteration}--kernel={1+2*args.out_init_conv_padding}--model.pth"
+                )
                 np.save(test_loss_filename, np.array(test_loss_save))
 
-                
-                optim_filename = f"{args.log_dir}/{args.project_name}-{args.run_name}-iteration-{iteration}-optim.pth"
+                optim_filename = (
+                    f"{args.log_dir}/{args.project_name}-{args.run_name}-iteration-"
+                    f"{iteration}-optim.pth"
+                )
 
                 torch.save(diffusion.state_dict(), model_filename)
                 torch.save(optimizer.state_dict(), optim_filename)
-
-                # 保存损失函数变化趋势
-
 
     except KeyboardInterrupt:
 
@@ -205,7 +206,7 @@ def create_argparser():
         log_dir="../result",
         project_name='Switch',
 
-        out_init_conv_padding = 1,
+        out_init_conv_padding=1,
         run_name=run_name,
 
         model_checkpoint=None,
