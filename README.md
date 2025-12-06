@@ -146,6 +146,52 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
+After installation, ensure `uv` is available in your terminal:
+
+```bash
+uv --version
+```
+
+
+###  MCP Server Project (Local deployment)
+
+
+
+
+1. Download the Server Poject File from:
+2. 在本地解压缩
+3. 打开压缩后的文件夹，目录如下：
+
+
+```text
+bio-mcp/
+├── rna_main_mcp.py              # MCP server entry point
+├── bio.py                       # Core bio-related logic
+├── rna_utils.py                 # RNA utilities
+├── rna_unet.py                  # RNA U-Net model
+├── rna_diffusion.py             # Diffusion models
+├── opt_promoter_main.py         # Promoter optimization
+├── promoter_utils*.py           # Promoter utilities
+├── fitness.py                   # Fitness calculations
+├── calculation_off_target.py    # Off-target calculations
+├── pyproject.toml               # Project & dependency configuration
+├── uv.lock                      # uv lockfile
+├── .python-version              # Optional Python version hint
+├── net/                         # Model weights (if present)
+└── README.md                    # This file
+```
+
+
+4. 
+
+
+
+
+
+
+
+
+
 ### Create a new directory for our project
 ```bash
 uv init fitness_prediction
