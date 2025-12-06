@@ -4,12 +4,14 @@ from Bio import SeqIO
 
 def find_potential_targets_positive_strand_with_shift(grna, genome_seq, pam="NGG", max_mismatch=3, shift_range=3):
     """
-    只在正义链（+）上搜索潜在脱靶位点，考虑 PAM 前 shift（0~shift_range nt）错位
-    grna: 长度为20的目标gRNA序列
-    genome_seq: DNA序列（大写字符串）
-    pam: PAM模式（默认为NGG）
-    max_mismatch: 允许最大错配碱基数
-    shift_range: 最大向前偏移碱基数（默认最多3nt）
+    Search potential off-target sites on the positive strand only, allowing PAM to shift forward
+    by 0 to shift_range nt.
+    Args:
+        grna (str): 20-nt target gRNA sequence
+        genome_seq (str): genomic DNA sequence (uppercase string)
+        pam (str): PAM pattern (default: "NGG")
+        max_mismatch (int): maximum allowed mismatches
+        shift_range (int): maximum upstream shift of PAM (default: 3 nt)
     """
     matches = []
     pam_regex = pam.replace("N", "[ACGT]")
@@ -46,12 +48,14 @@ def find_potential_targets_positive_strand_with_shift(grna, genome_seq, pam="NGG
 
 def find_potential_targets_negetive_strand_with_shift(grna, genome_seq, pam="NGG", max_mismatch=3, shift_range=3):
     """
-    只在正义链（+）上搜索潜在脱靶位点，考虑 PAM 前 shift（0~shift_range nt）错位
-    grna: 长度为20的目标gRNA序列
-    genome_seq: DNA序列（大写字符串）
-    pam: PAM模式（默认为NGG）
-    max_mismatch: 允许最大错配碱基数
-    shift_range: 最大向前偏移碱基数（默认最多3nt）
+    Search potential off-target sites on the negative strand only, allowing PAM to shift forward
+    by 0 to shift_range nt.
+    Args:
+        grna (str): 20-nt target gRNA sequence
+        genome_seq (str): genomic DNA sequence (uppercase string)
+        pam (str): PAM pattern (default: "NGG")
+        max_mismatch (int): maximum allowed mismatches
+        shift_range (int): maximum upstream shift of PAM (default: 3 nt)
     """
     matches = []
     pam_regex = pam.replace("N", "[ACGT]")
@@ -89,46 +93,46 @@ def find_potential_targets_negetive_strand_with_shift(grna, genome_seq, pam="NGG
 
 
 def get_reverse_complement(dna_sequence):
-    """将正义链转换为反义链（reverse complement）"""
+    """Return reverse complement of the given DNA sequence."""
     return str(Seq(dna_sequence).reverse_complement())
 
 
 
 def main_function_off_target(grna, max_mismatch=2, shift_range=3, pam="NGG"):
-    # 输入grna，然后在大肠杆菌全基因组上寻找潜在的脱靶位点
+    # Given a gRNA, search the E. coli genome for potential off-target sites
 
-    # 加载FASTA文件
+    # Load genome FASTA
     record = next(SeqIO.parse("../data/ecoli.fasta", "fasta"))
     genome_seq = str(record.seq).upper()
 
-    # 查找潜在靶点（只在正义链、允许2错配，PAM前最多错位3nt）
-    sites = find_potential_targets_positive_strand_with_shift(grna, genome_seq, pam=pam, max_mismatch=max_mismatch, shift_range=shift_range)
-    sites += find_potential_targets_negetive_strand_with_shift(grna, get_reverse_complement(dna_sequence=genome_seq), pam=pam, max_mismatch=max_mismatch, shift_range=shift_range)
-
-    # 打印结果统计
-    # print(f"共找到 {len(sites)} 个正义链潜在靶点（含错位）")
-    # for s in sites[:5]:
-    #     print(s)
+    # Search potential targets on both strands
+    sites = find_potential_targets_positive_strand_with_shift(
+        grna, genome_seq, pam=pam, max_mismatch=max_mismatch, shift_range=shift_range
+    )
+    sites += find_potential_targets_negetive_strand_with_shift(
+        grna,
+        get_reverse_complement(dna_sequence=genome_seq),
+        pam=pam,
+        max_mismatch=max_mismatch,
+        shift_range=shift_range
+    )
 
     return sites
 
 def find_pattern_substrings(seq, length=20):
-
     """
-    根据给定的靶向序列seq，查找grna。
+    Given a DNA sequence, find all 20-nt candidate guides followed by an NGG PAM.
     """
-    
     substrings = []
-    for i in range(len(seq) - length - 2):  # -2 是因为 'NGG' 长度为3
+    for i in range(len(seq) - length - 2):  # -2 because PAM 'NGG' has length 3
         candidate = seq[i:i+length]
         pam = seq[i+length:i+length+3]
-        # 检查 PAM 是否为 N + GG
+        # Check that PAM matches N + GG
         if len(pam) == 3 and pam[1:] == "GG":
             substrings.append(candidate)
     return substrings
 
 
 if __name__ == "__main__":
-
 
     main_function_off_target(grna="GACGTTGACGGTTAGTGTTT", max_mismatch=2, shift_range=3, pam="NGG")
