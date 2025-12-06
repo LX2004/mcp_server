@@ -28,7 +28,7 @@ def encode_list(seqList):
     return X_seq
 
 
-def compute_efficiency(seq, model, max_reads = 11.18553192156916, min_reads = -7.686416791646049, device=torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')): # 绘制实际值和预测值的分布
+def compute_efficiency(seq, model, max_reads = 11.18553192156916, min_reads = -7.686416791646049, device=torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')): 
 
     randomset_=encode_list(seq)
     randomset_ = torch.tensor(randomset_).to(device)
@@ -50,7 +50,7 @@ def make_dataset_for_efficiency(guides):
 
 def Quickly_predict_efficiency(sgRNA):
     
-    # 加载模型
+
     device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(2)
     model = torch.load('../model/effiency_prediction.pth', weights_only=False).to(device)
@@ -59,7 +59,6 @@ def Quickly_predict_efficiency(sgRNA):
 
     print('seq.shape = ', seq.shape)
 
-    '''计算预测值'''
     predict_result = compute_efficiency(seq, model)
     
     return predict_result
