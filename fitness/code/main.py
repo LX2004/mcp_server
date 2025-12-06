@@ -1,4 +1,3 @@
-
 import os
 import pandas as pd
 from io import StringIO
@@ -29,12 +28,12 @@ def read_data_Ecoli(df):
     return guides, essentials, oris, codings
 
 
-def plot_target_label_feature(seq, bio, model, max_reads = 1.71, min_reads =  -3.5, device=torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')): # 绘制实际值和预测值的分布
+def plot_target_label_feature(seq, bio, model, max_reads = 1.71, min_reads = -3.5, device=torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')):
 
     randomset_ = torch.tensor(seq).to(device)
 
     bio_  = torch.tensor(bio).to(device)
-    df_pred = compute_scaler(model(randomset_, bio_),max_reads=max_reads,min_reads=min_reads)
+    df_pred = compute_scaler(model(randomset_, bio_), max_reads=max_reads, min_reads=min_reads)
 
     df_pred = np.array(df_pred).squeeze()
     return df_pred
@@ -66,7 +65,6 @@ def read_data_staphy(df):
 
 
 def read_data_E_limosum(df):
-    # 条件1  GP 条件（异养生长）   # 条件2 CP 条件（自养生长）    # 条件3  Syn 条件（合成气）
     return df['guide_rna'].tolist(), df['condition'].tolist()
 
 def make_dataset_bacillus_bio(guides, essentials):
@@ -79,10 +77,9 @@ def make_dataset_bacillus_bio(guides, essentials):
         if len(sequence) < 20:
 
             print('length = ', len(sequence))
-            print('sequence = ',sequence)
+            print('sequence = ', sequence)
             continue
         
-        # 进行独热向量编码
         essential = str(essential)
 
         if essential == 'True' or 'TRUE':
@@ -93,10 +90,10 @@ def make_dataset_bacillus_bio(guides, essentials):
             ori = np.array([0,1])
             
         else:
-            print(f"输入的 Essential = {essential} 字符串不在给定的列表中，无法进行独热向量编码。")
+            print(f"The input Essential = {essential} is not in the allowed list for one-hot encoding.")
             continue
 
-        feature = Dimer_split_seqs(sequence)  # 所有序列作为输入
+        feature = Dimer_split_seqs(sequence)
         feature = np.array(feature)
         feature = feature.astype(int)
 
@@ -116,10 +113,9 @@ def make_dataset_staphy_bio(guides, essentials):
         if len(sequence) < 20:
 
             print('length = ', len(sequence))
-            print('sequence = ',sequence)
+            print('sequence = ', sequence)
             continue
         
-        # 进行独热向量编码
         essential = str(essential)
 
         if essential == 'True' or 'TRUE':
@@ -130,10 +126,10 @@ def make_dataset_staphy_bio(guides, essentials):
             ori = np.array([0,1])
             
         else:
-            print(f"输入的 Essential = {essential} 字符串不在给定的列表中，无法进行独热向量编码。")
+            print(f"The input Essential = {essential} is not in the allowed list for one-hot encoding.")
             continue
 
-        feature = Dimer_split_seqs(sequence)  # 所有序列作为输入
+        feature = Dimer_split_seqs(sequence)
         feature = np.array(feature)
         feature = feature.astype(int)
 
@@ -147,7 +143,6 @@ def make_dataset_E_limosum(guides, conditions):
     features_array = []
     bios_array = []
 
-    # number = 0
     print(guides)
     print(conditions)
 
@@ -158,10 +153,9 @@ def make_dataset_E_limosum(guides, conditions):
         if len(sequence) < 20:
 
             print('length = ', len(sequence))
-            print('sequence = ',sequence)
+            print('sequence = ', sequence)
             continue
         
-        # 进行独热向量编码
         if condition in base_conditions:
 
             if condition == 'GP':
@@ -177,7 +171,7 @@ def make_dataset_E_limosum(guides, conditions):
             print("The input condition string is not in the given list, and one-hot encoding cannot be performed.")
             continue
 
-        feature = Dimer_split_seqs(sequence[-20:])  # 所有序列作为输入
+        feature = Dimer_split_seqs(sequence[-20:])
         feature = np.array(feature)
         feature = feature.astype(int)
 
@@ -198,23 +192,21 @@ def make_dataset_for_find_prometer(guides, essentials, oris, codings):
         split_sequence = [char for char in sequence]
         seq.append(split_sequence)
 
-        # 处理生物信息量
         essential_feature = encode_essential(essential)
         ori_feature = encode_ori(ori)
         coding_feature = encode_coding(coding)
 
-        # 将浮点数添加到堆叠后的数组中
         biofeature = np.concatenate((essential_feature, ori_feature, coding_feature))
         bio.append(biofeature)
 
     return np.array(seq), np.array(bio)
 
-def compute_scaler(model_output, max_reads = 1.71, min_reads =  -3.5):
+def compute_scaler(model_output, max_reads = 1.71, min_reads = -3.5):
 
     model_output = model_output.detach().cpu().numpy()
 
-    max_reads_mddel =  np.max(model_output)
-    min_reads_mddel =  np.min(model_output)
+    max_reads_mddel = np.max(model_output)
+    min_reads_mddel = np.min(model_output)
     
     if max_reads_mddel != min_reads_mddel:
 
@@ -226,16 +218,16 @@ def compute_scaler(model_output, max_reads = 1.71, min_reads =  -3.5):
 
 def encode_list(seqList):
 
-    X_seq=np.array([Dimer_split_seqs(''.join(np.char.join('', sequence))) for sequence in seqList])
+    X_seq = np.array([Dimer_split_seqs(''.join(np.char.join('', sequence))) for sequence in seqList])
 
     return X_seq
 
-def plot_target_label(seq, bio, model, max_reads = 1.71, min_reads =  -3.5): # 绘制实际值和预测值的分布
+def plot_target_label(seq, bio, model, max_reads = 1.71, min_reads = -3.5):
 
     device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(2)
     
-    randomset_=encode_list(seq)
+    randomset_ = encode_list(seq)
     randomset_ = torch.tensor(randomset_).to(device)
 
     bio_  = torch.tensor(bio).to(device)
@@ -245,15 +237,12 @@ def plot_target_label(seq, bio, model, max_reads = 1.71, min_reads =  -3.5): # �
     return df_pred
 
 
-'''各类细菌适应度值的预测函数'''
 def prediction_Ecoli(inputCsv):
 
-    # 加载模型
     device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(2)
     model = torch.load('../model/prediction_model_Ecoli.pth', weights_only=False).to(device)
 
-    # 读取 CSV 数据为 DataFrame
     df = pd.read_csv(StringIO(inputCsv))
     print('df', df)
 
@@ -261,33 +250,25 @@ def prediction_Ecoli(inputCsv):
     seq, bio = make_dataset_for_find_prometer(guides, essentials, oris, codings)
     print('seq.shape = ', seq.shape)
 
-    '''计算预测值'''
     predictions = plot_target_label(seq, bio, model)
     predictions = predictions.tolist()
 
-    # 添加新列到 DataFrame
     df["prediction_fitness"] = predictions
 
     df.to_csv("../result/Ecoli_predictions.csv", index=False)
 
-
-    # 生成 pccGraph 结构
-    # pccGraph = [{"x": x, "y": y, "label": label} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
-    # pccGraph = [{"label": label, "x": x, "y": y} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
     pccGraph = [{"label": label, "x": round(y, 4), "y": round(x, 4)} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
 
     print(df["guide_rna"])
 
     if 'fitness' in df.columns:
-        pcc, p_value = pearsonr(df["fitness"], df["prediction_fitness"] )
+        pcc, p_value = pearsonr(df["fitness"], df["prediction_fitness"])
 
-    # 将 DataFrame 转化为字符串
     csv = df.to_csv(index=False)
 
     csv = csv.replace('True', 'TRUE').replace('False', 'FALSE')
     print('csv = \n', csv)
 
-    # 创建 JSON 响应
     response = jsonify({
         'csv': csv,
         'pcc': pcc,
@@ -297,12 +278,10 @@ def prediction_Ecoli(inputCsv):
     return response
 
 def prediction_Synechocystis(inputCsv):
-    # 加载模型
     device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(2)
     model = torch.load('../model/prediction_model_Synechocystis.pth', weights_only=False).to(device)
 
-    # 读取 CSV 数据为 DataFrame
     df = pd.read_csv(StringIO(inputCsv))
     print('load data: \n', df)
 
@@ -312,28 +291,21 @@ def prediction_Synechocystis(inputCsv):
 
     print('seq.shape = ', seq.shape)
 
-    '''计算预测值'''
     predictions = Synechocystis.plot_target_label(seq, bio, model, device=device)
     predictions = predictions.tolist()
 
-    # 添加新列到 DataFrame
     df["prediction_fitness"] = predictions
 
-    # 生成 pccGraph 结构
-    # pccGraph = [{"x": x, "y": y, "label": label} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
-    # pccGraph = [{"label": label, "x": y, "y": x} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
     pccGraph = [{"label": label, "x": round(y, 4), "y": round(x, 4)} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
 
     if 'fitness' in df.columns:
-        pcc, p_value = pearsonr(df["fitness"], df["prediction_fitness"] )
+        pcc, p_value = pearsonr(df["fitness"], df["prediction_fitness"])
 
-    # 将 DataFrame 转化为字符串
     csv = df.to_csv(index=False)
 
     csv = csv.replace('True', 'TRUE').replace('False', 'FALSE')
     print('csv = \n', csv)
 
-    # 创建 JSON 响应
     response = jsonify({
         'csv': csv,
         'pcc': pcc,
@@ -343,23 +315,17 @@ def prediction_Synechocystis(inputCsv):
     return response
 
 def load_csv_as_string(filename, nrows=128):
-    # 读取 CSV 文件的前 128 行
     df = pd.read_csv(filename, nrows=nrows)
-
-    # 将 DataFrame 转换为 CSV 格式的字符串
-    csv_string = df.to_csv(index=False)  # index=False 不保留行索引
-
+    csv_string = df.to_csv(index=False)
     return csv_string
 
 
 def prediction_Bacillus(inputCsv):
 
-    # 加载模型
     device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(2)
     model = torch.load('../model/prediction_model_Bacillus.pth', weights_only=False).to(device)
 
-    # 读取 CSV 数据为 DataFrame
     df = pd.read_csv(StringIO(inputCsv))
     print('df', df)
 
@@ -370,26 +336,20 @@ def prediction_Bacillus(inputCsv):
 
     print('seq.shape = ', seq.shape)
 
-    '''计算预测值'''
-    predictions = plot_target_label_feature(seq, bio, model, max_reads = 1.157, min_reads = -0.2341,device=device)
+    predictions = plot_target_label_feature(seq, bio, model, max_reads=1.157, min_reads=-0.2341, device=device)
     predictions = predictions.tolist()
     df["prediction_fitness"] = predictions
 
-    # 生成 pccGraph 结构
-    # pccGraph = [{"x": x, "y": y, "label": label} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
-    # pccGraph = [{"label": label, "x": y, "y": x} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
     pccGraph = [{"label": label, "x": round(y, 4), "y": round(x, 4)} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
 
     if 'fitness' in df.columns:
-        pcc, p_value = pearsonr(df["fitness"], df["prediction_fitness"] )
+        pcc, p_value = pearsonr(df["fitness"], df["prediction_fitness"])
 
-    # 将 DataFrame 转化为字符串
     csv = df.to_csv(index=False)
 
     csv = csv.replace('True', 'TRUE').replace('False', 'FALSE')
     print('csv = \n', csv)
 
-    # 创建 JSON 响应
     response = jsonify({
         'csv': csv,
         'pcc': pcc,
@@ -404,20 +364,17 @@ def read_data_clean_staphy(df):
     guides = []
     fit18s = []
 
-    # 生物信息
     essentials = []
     number = 0
     for variant_guide, essential, fitness in zip(df['guide_rna'], df['essential'], df['fitness']):
         
-        # 转化为 float 类型
         fitness = float(fitness)
         essential = str(essential)
 
         if math.isnan(fitness) or len(variant_guide) < 20:
             print(f'fitness is {fitness}!!!')
-            
             continue
-        if not essential in ['True', 'False',False, True, 'FALSE', 'TRUE']:
+        if not essential in ['True', 'False', False, True, 'FALSE', 'TRUE']:
             continue
 
         guides.append(variant_guide.upper())
@@ -440,10 +397,8 @@ def make_dataset_sequences_bio_clean_staphy(guides, fit18s, essentials):
     max_reads = np.max(fit18s) 
     min_reads = np.min(fit18s)
 
-    print('max_reads = ',max_reads)
-    print('min_reads = ',min_reads)
-
-    # pdb.set_trace()
+    print('max_reads = ', max_reads)
+    print('min_reads = ', min_reads)
 
     number = 0
  
@@ -453,10 +408,9 @@ def make_dataset_sequences_bio_clean_staphy(guides, fit18s, essentials):
         if len(sequence) < 20:
 
             print('length = ', len(sequence))
-            print('sequence = ',sequence)
+            print('sequence = ', sequence)
             continue
         
-        # 进行独热向量编码
         essential = str(essential)
 
         if essential == 'True' or essential == True or essential == 'TRUE':
@@ -467,10 +421,10 @@ def make_dataset_sequences_bio_clean_staphy(guides, fit18s, essentials):
             ori = np.array([0,1])
             
         else:
-            print(f"输入的 Essential = {essential} 字符串不在给定的列表中，无法进行独热向量编码。")
+            print(f"The input Essential = {essential} is not in the allowed list for one-hot encoding.")
             continue
 
-        feature = Dimer_split_seqs(sequence)  # 所有序列作为输入
+        feature = Dimer_split_seqs(sequence)
         feature = np.array(feature)
         feature = feature.astype(int)
 
@@ -481,18 +435,16 @@ def make_dataset_sequences_bio_clean_staphy(guides, fit18s, essentials):
         labels_array.append(label)
 
         number += 1
-    print('number = ',number)
+    print('number = ', number)
     
     return np.array(features_array), np.array(labels_array), np.array(bios_array)
 
 def prediction_Staphyloccus(inputCsv):
 
-    # 加载模型
     device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(2)
     model = torch.load('../model/prediction_model_Staphyloccus.pth', weights_only=False).to(device)
 
-    # 读取 CSV 数据为 DataFrame
     df = pd.read_csv(StringIO(inputCsv))
     print('df', df)
 
@@ -501,38 +453,24 @@ def prediction_Staphyloccus(inputCsv):
     features_array, labels_array, biofeatures_array = make_dataset_sequences_bio_clean_staphy(guides, fit18s, essentials)
     output = model(torch.tensor(features_array).to(device), torch.tensor(biofeatures_array).to(device))
     print('output = ', output)
-    prediction = compute_scaler(output, max_reads =  2.43, min_reads =  -9.74)
+    prediction = compute_scaler(output, max_reads=2.43, min_reads=-9.74)
     print('000')
     predictions = np.squeeze(prediction)
 
-    # guides, essentials = read_data_staphy(df)
-    # seq, bio = make_dataset_staphy_bio(guides, essentials)
-    # predictions = plot_target_label_feature(seq, bio, model, max_reads = 2.423, min_reads = -9.74,device=device)
-
-    
-    # print('seq.shape = ', seq.shape)
-
-    '''计算预测值'''
     print('1111')
     predictions = predictions.tolist()
     print('222')
-    # 添加新列到 DataFrame
     df["prediction_fitness"] = predictions
 
-    # 生成 pccGraph 结构
-    # pccGraph = [{"x": x, "y": y, "label": label} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
-    # pccGraph = [{"label": label, "x": y, "y": x} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
     pccGraph = [{"label": label, "x": round(y, 4), "y": round(x, 4)} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
     if 'fitness' in df.columns:
-        pcc, p_value = pearsonr(df["fitness"], df["prediction_fitness"] )
+        pcc, p_value = pearsonr(df["fitness"], df["prediction_fitness"])
 
-    # 将 DataFrame 转化为字符串
     csv = df.to_csv(index=False)
 
     csv = csv.replace('True', 'TRUE').replace('False', 'FALSE')
     print('csv = \n', csv)
 
-    # 创建 JSON 响应
     response = jsonify({
         'csv': csv,
         'pcc': pcc,
@@ -543,47 +481,33 @@ def prediction_Staphyloccus(inputCsv):
 
 def prediction_E_limosum(inputCsv):
 
-    # 加载模型
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(1)
     model = torch.load('../model/prediction_model_E_limosum.pth', weights_only=False).to(device)
 
-    # 读取 CSV 数据为 DataFrame
     df = pd.read_csv(StringIO(inputCsv))
-    # print('df', df)
 
-    # print(0000)
     guides, conditions = read_data_E_limosum(df)
-
-    # print('!!!!')
 
     seq, bio = make_dataset_E_limosum(guides, conditions)
     print(df.columns)
     
-    '''计算预测值'''
-
-    predictions = plot_target_label_feature(seq, bio, model, max_reads = 4.5, min_reads = -2.3225, device=device)
-    print('prediction = ',predictions)
+    predictions = plot_target_label_feature(seq, bio, model, max_reads=4.5, min_reads=-2.3225, device=device)
+    print('prediction = ', predictions)
     predictions = predictions.tolist()
 
-    # 添加新列到 DataFrame
     df["prediction_fitness"] = predictions
 
-    # 生成 pccGraph 结构
-    # pccGraph = [{"x": x, "y": y, "label": label} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
-    # pccGraph = [{"label": label, "x": y, "y": x} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
     pccGraph = [{"label": label, "x": round(y, 4), "y": round(x, 4)} for x, y, label in zip(df["prediction_fitness"], df["fitness"], df["guide_rna"])]
 
     if 'fitness' in df.columns:
-        pcc, p_value = pearsonr(df["fitness"], df["prediction_fitness"] )
+        pcc, p_value = pearsonr(df["fitness"], df["prediction_fitness"])
 
-    # 将 DataFrame 转化为字符串
     csv = df.to_csv(index=False)
 
     csv = csv.replace('True', 'TRUE').replace('False', 'FALSE')
     print('csv = \n', csv)
 
-    # 创建 JSON 响应
     response = jsonify({
         'csv': csv,
         'pcc': pcc,
@@ -593,12 +517,8 @@ def prediction_E_limosum(inputCsv):
     return response
 
 
-
-
-
 def Quickly_predict_fitness_E_coli(sgRNA):
     
-    # 加载模型
     device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(2)
     model = torch.load('../model/prediction_model_Ecoli.pth', weights_only=False).to(device)
@@ -607,6 +527,7 @@ def Quickly_predict_fitness_E_coli(sgRNA):
     essentials = []
     oris = []
     codings = [] 
+    
     
     for ori in ['+','-']:
         for coding in ['FALSE','TRUE']:
@@ -620,7 +541,6 @@ def Quickly_predict_fitness_E_coli(sgRNA):
     seq, bio = make_dataset_for_find_prometer(guides, essentials, oris, codings)
     print('seq.shape = ', seq.shape)
 
-    '''计算预测值'''
     predictions = plot_target_label(seq, bio, model)
     predict_result = np.mean(predictions)
     
@@ -629,7 +549,6 @@ def Quickly_predict_fitness_E_coli(sgRNA):
 
 def Quickly_predict_fitness_Synechocystis(sgRNA):
     
-    # 加载模型
     device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(2)
     model = torch.load('../model/prediction_model_Synechocystis.pth', weights_only=False).to(device)
@@ -639,7 +558,7 @@ def Quickly_predict_fitness_Synechocystis(sgRNA):
     oris = []
  
     for ori in ['+','-']:
-        for light in  ['100', '300', '0/300']:
+        for light in ['100', '300', '0/300']:
                             
             guides.append(sgRNA)
             lights.append(light)
@@ -647,7 +566,6 @@ def Quickly_predict_fitness_Synechocystis(sgRNA):
     
     seq, bio = Synechocystis.make_dataset(guides, oris, lights)
 
-    '''计算预测值'''
     predictions = Synechocystis.plot_target_label(seq, bio, model, device=device)
     predict_result = np.mean(predictions)
     
@@ -656,7 +574,6 @@ def Quickly_predict_fitness_Synechocystis(sgRNA):
 
 def Quickly_predict_fitness_Bacillus_subtillis(sgRNA):
     
-    # 加载模型
     device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(2)
     model = torch.load('../model/prediction_model_Bacillus.pth', weights_only=False).to(device)
@@ -666,7 +583,6 @@ def Quickly_predict_fitness_Bacillus_subtillis(sgRNA):
     
     for essential in ['FALSE','TRUE']:
         
-                                   
         guides.append(sgRNA)
         essentials.append(essential)
         
@@ -679,17 +595,12 @@ def Quickly_predict_fitness_Bacillus_subtillis(sgRNA):
     bio_  = torch.tensor(bio).to(device)
     print('22222')
     
-    max_reads=1.157
-    min_reads=-0.2341
+    max_reads = 1.157
+    min_reads = -0.2341
     
     model_output = model(randomset_, bio_)
     print('4444')
     
-    # max_reads_mddel =  np.max(model_output)
-    # min_reads_mddel =  np.min(model_output)
-
-    # model_output = (model_output - min_reads_mddel) / (max_reads_mddel - min_reads_mddel)
-
     df_pred = min_reads + (max_reads - min_reads) * model_output
     print('5555')
     print('df_pred = ', df_pred)
@@ -697,11 +608,8 @@ def Quickly_predict_fitness_Bacillus_subtillis(sgRNA):
     predictions = df_pred.cpu().detach().numpy().squeeze()
     print('6666')
     
-
     print('predictions = ', predictions)
 
-    '''计算预测值'''
-    # predictions = plot_target_label_feature(seq, bio, model, max_reads = 1.157, min_reads = -0.2341,device=device)
     predict_result = np.mean(predictions)
     
     return predict_result
@@ -709,11 +617,9 @@ def Quickly_predict_fitness_Bacillus_subtillis(sgRNA):
 
 def Quickly_predict_fitness_Staphyloccus(sgRNA):
     
-    # 加载模型
     device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(2)
     model = torch.load('../model/prediction_model_Staphyloccus.pth', weights_only=False).to(device)
-
 
     guides = []
     essentials = []
@@ -723,11 +629,11 @@ def Quickly_predict_fitness_Staphyloccus(sgRNA):
         guides.append(sgRNA)
         essentials.append(essential)
         
-    fit18s = [ i for i in range(0,len(guides))]
+    fit18s = [i for i in range(0, len(guides))]
         
     features_array, labels_array, biofeatures_array = make_dataset_sequences_bio_clean_staphy(guides, fit18s, essentials)
     output = model(torch.tensor(features_array).to(device), torch.tensor(biofeatures_array).to(device))
-    prediction = compute_scaler(output, max_reads =  2.43, min_reads =  -9.74)
+    prediction = compute_scaler(output, max_reads=2.43, min_reads=-9.74)
     predictions = np.squeeze(prediction)
     
     predict_result = np.mean(predictions)
@@ -737,7 +643,6 @@ def Quickly_predict_fitness_Staphyloccus(sgRNA):
 
 def Quickly_predict_fitness_E_limosum(sgRNA):
     
-    # 加载模型
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(1)
     model = torch.load('../model/prediction_model_E_limosum.pth', weights_only=False).to(device)
@@ -752,9 +657,7 @@ def Quickly_predict_fitness_E_limosum(sgRNA):
         
     seq, bio = make_dataset_E_limosum(guides, conditions)
 
-    
-    '''计算预测值'''
-    predictions = plot_target_label_feature(seq, bio, model, max_reads = 4.5, min_reads = -2.3225, device=device)
+    predictions = plot_target_label_feature(seq, bio, model, max_reads=4.5, min_reads=-2.3225, device=device)
     predict_result = np.mean(predictions)
     
     return predict_result
@@ -765,33 +668,26 @@ def Quickly_prediction_fitness(name, gRNA):
 
         prediction_result = Quickly_predict_fitness_E_coli(gRNA[-20:])        
         return f'E_coli  gRNA:{gRNA}, fitness:{prediction_result}'
-        # print('E_coli')
 
     elif name == 'Synechocystis':
 
         prediction_result = Quickly_predict_fitness_Synechocystis(gRNA[-20:])
         return f'Synechocystis  gRNA:{gRNA}, fitness:{prediction_result}'
-        # print('Synechocystis')
-
 
     elif name == 'Bacillus_subtillis':
 
         prediction_result = Quickly_predict_fitness_Bacillus_subtillis(gRNA[-20:])
         return f'Bacillus_subtillis  gRNA:{gRNA}, fitness:{prediction_result}'
-        # print('Synechocystis')
 
-    
     elif name == 'Staphyloccus':
 
         prediction_result = Quickly_predict_fitness_Staphyloccus(gRNA[-20:])
         return f'Staphyloccus  gRNA:{gRNA}, fitness:{prediction_result}'
-        # print('Synechocystis')
     
     elif name == 'E_limosum':
 
         prediction_result = Quickly_predict_fitness_E_limosum(gRNA[-20:])
         return f'E_limosum  gRNA:{gRNA}, fitness:{prediction_result}'
-        # print('Synechocystis')
 
     else: 
         valid_species = ["E_coli", "Cyanobacteria", "Staphylococcus", "E_limosum", "Bacillus_subtillis"]
@@ -799,15 +695,11 @@ def Quickly_prediction_fitness(name, gRNA):
     
 
 
-    
-
-
 if __name__ == '__main__':
     
-    # 确定训练所需GPU
     device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     torch.cuda.set_device(2)
-    print('device =',device)
+    print('device =', device)
     
     name = "E_coli"
     gRNA = "AAAAAACGTATTCGCTTGCA"
