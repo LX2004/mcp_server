@@ -5,21 +5,21 @@ from net.transformer import PositionalEncoding, TransformerEncoder
 
 
 class Predict_encoder(nn.Module):
-    def __init__(self,nhead,layers,hidden_dim,latent_dim,embedding_dim,seq_len,probs,device='cuda'):
-        super(Predict_encoder,self).__init__()
+    def __init__(self, nhead, layers, hidden_dim, latent_dim, embedding_dim, seq_len, probs, device='cuda'):
+        super(Predict_encoder, self).__init__()
         
-        self.layers = layers # encoder的数目
-        self.embedding_dim = embedding_dim #嵌入的维度
-        self.seq_len = seq_len # 序列的长度
-        self.nhead = nhead # 注意力头数
-        self.hidden_dim = hidden_dim #encoder中全连接层的隐藏层神经元数目
-        self.probs = probs # encoder中全连接层的dropout系数
+        self.layers = layers  # number of encoder layers
+        self.embedding_dim = embedding_dim  # embedding dimension
+        self.seq_len = seq_len  # sequence length
+        self.nhead = nhead  # number of attention heads
+        self.hidden_dim = hidden_dim  # hidden dimension of feedforward layer in encoder
+        self.probs = probs  # dropout rate in encoder
         self.device = device
-        self.latent_dim = latent_dim # 将编码器得到的信息最终以想要的维度输出，不接这个那么输出的维度一直是embedding dim
+        self.latent_dim = latent_dim  # output dimension of encoder (latent dimension)
         self.src_mask = None
         
         self.pos_encoder = PositionalEncoding(
-           device=self.device,d_model=self.embedding_dim, max_len=self.seq_len
+           device=self.device, d_model=self.embedding_dim, max_len=self.seq_len
         )
         
         self.transformer_encoder = TransformerEncoder(
@@ -71,9 +71,9 @@ class Predict_encoder(nn.Module):
         output_embed = self.transformer_encoder(pos_encoded_batch, self.src_mask)
         return output_embed
     
-    def encoder(self,embedded_batch):
+    def encoder(self, embedded_batch):
         
-        # 输入嵌入后的信息
+        # input after embedding
         output_embed = self.transformer_encoding(embedded_batch)
 
         glob_attn = self.glob_attn_module(output_embed)  # output should be B x S x 1
@@ -88,18 +88,19 @@ class Predict_encoder(nn.Module):
 
         return z_rep
     
-    def forward(self,input):
+    def forward(self, input):
         return self.encoder(input)
     
 if __name__ == '__main__':
-    CUDA_LAUNCH_BLOCKING=1
+    CUDA_LAUNCH_BLOCKING = 1
     noise_dim = 1
     in_channels = 1
     feature_g = 4
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    print('*********dedvice =',device,'*********')
-    Pre_model = Predict_encoder(nhead = 4,layers=4,hidden_dim=4,latent_dim=16,embedding_dim=100,seq_len=100,probs=0.1,device='cuda')
+    print('*********dedvice =', device, '*********')
+    Pre_model = Predict_encoder(nhead=4, layers=4, hidden_dim=4, latent_dim=16,
+                                embedding_dim=100, seq_len=100, probs=0.1, device='cuda')
     Pre_model = Pre_model.to(device)
-    z = torch.randn(size = (64,100,100),device='cuda')
+    z = torch.randn(size=(64, 100, 100), device='cuda')
     # summary(gen,input_size=(1,noise_dim,1,1))
     print(Pre_model(z).shape)
