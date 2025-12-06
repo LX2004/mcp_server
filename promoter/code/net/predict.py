@@ -28,16 +28,15 @@ class TransformerEncoder(nn.Module):
     def forward(self, x):
         x = self.embedding(x)
         x = self.transformer(x)
-        x = x.mean(dim=1)  # 可以使用不同的汇聚策略
+        x = x.mean(dim=1)
         x = self.fc(x)
         return x
-# 定义一维卷积残差模块
+
 class ResidualBlock(nn.Module):
     def __init__(self, num_channels):
         super(ResidualBlock, self).__init__()
         self.num_channels = num_channels
 
-        # 定义两个卷积层
         self.conv1 = nn.Conv1d(self.num_channels, self.num_channels, kernel_size=27, padding=13)
         self.conv2 = nn.Conv1d(self.num_channels, self.num_channels, kernel_size=27, padding=13)
         
@@ -49,14 +48,9 @@ class ResidualBlock(nn.Module):
         for _ in range(2):
             res = self.batch_norm(res)
             res = F.relu(res)
-            # print('res.shape = ',res.shape)
-            # print('bias1.shape = ',self.bias1.shape)
-            
-            # res = self.conv1(res) + self.bias1
             res = self.conv1(res)
             res = self.batch_norm(res)
             res = F.relu(res)
-            # res = self.conv2(res) + self.bias2
             res = self.conv2(res)
             
         return x + (0.3 * res)
@@ -175,10 +169,8 @@ class predict(torch.nn.Module):
         conv2 = self.conv2(pool1)
         conv3 = self.conv3(drop1)
         
-        # 加入残差模块
         for res_block in self.conv2_res:
             conv2 = res_block(conv2)
-            # print('outputs3.shape = ',outputs.shape)
         for res_block in self.conv3_res:
             conv3 = res_block(conv3)
         
@@ -223,6 +215,7 @@ class MLP(torch.nn.Module):
 
     def forward(self, x):
         return self.mlp(x)
+
 if __name__ == '__main__':
     in_channles = 3
     H,W = 64,64
