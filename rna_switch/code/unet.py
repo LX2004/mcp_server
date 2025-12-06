@@ -23,7 +23,7 @@ class PositionalEmbedding(nn.Module):
     __doc__ = r"""Computes a positional embedding of timesteps.
 
     Input:
-        x: tensor of shape (N)
+        x: tensor of shape (N)
     Output:
         tensor of shape (N, dim)
     Args:
@@ -64,7 +64,7 @@ class Downsample(nn.Module):
 
         super().__init__()
 
-        self.downsample = nn.Conv2d(in_channels, in_channels, (1,5), stride=(1,1), padding=1)
+        self.downsample = nn.Conv2d(in_channels, in_channels, (1, 5), stride=(1, 1), padding=1)
     
     def forward(self, x, time_emb, y):
 
@@ -94,7 +94,7 @@ class Upsample(nn.Module):
 
         self.upsample = nn.Sequential(
             # nn.Upsample(scale_factor=2, mode="nearest"),
-            nn.Conv2d(in_channels, in_channels, kernel_size = (3,3), padding=(0,2)),
+            nn.Conv2d(in_channels, in_channels, kernel_size=(3, 3), padding=(0, 2)),
         )
     
     def forward(self, x, time_emb, y):
@@ -144,9 +144,9 @@ class ResidualBlock(nn.Module):
     __doc__ = r"""Applies two conv blocks with resudual connection. Adds time and class conditioning by adding bias after first convolution.
 
     Input:
-        x: tensor of shape (N, in_channels, H, W)
-        time_emb: time embedding tensor of shape (N, time_emb_dim) or None if the block doesn't use time conditioning
-        y: classes tensor of shape (N) or None if the block doesn't use class conditioning
+        x: tensor of shape (N, in_channels, H, W)
+        time_emb: time embedding tensor of shape (N, time_emb_dim) or None if the block doesn't use time conditioning
+        y: classes tensor of shape (N) or None if the block doesn't use class conditioning
     Output:
         tensor of shape (N, out_channels, H, W)
     Args:
@@ -177,7 +177,7 @@ class ResidualBlock(nn.Module):
         self.activation = activation
 
         self.norm_1 = get_norm(norm, in_channels, num_groups)
-        self.conv_1 = nn.Conv2d(in_channels, out_channels, kernel_size=(1, 5), padding=(0,2))
+        self.conv_1 = nn.Conv2d(in_channels, out_channels, kernel_size=(1, 5), padding=(0, 2))
         # self.conv_1 = nn.Conv2d(in_channels, out_channels, kernel_size=(1, 7), padding=(0,3))
 
         self.norm_2 = get_norm(norm, out_channels, num_groups)
@@ -185,7 +185,7 @@ class ResidualBlock(nn.Module):
         self.conv_2 = nn.Sequential(
 
             nn.Dropout(p=dropout),
-            nn.Conv2d(out_channels, out_channels, kernel_size=(1, 5), padding=(0,2)),
+            nn.Conv2d(out_channels, out_channels, kernel_size=(1, 5), padding=(0, 2)),
             # nn.Conv2d(out_channels, out_channels, kernel_size=(1, 7), padding=(0,3)),
         
         )
@@ -222,9 +222,9 @@ class UNet(nn.Module):
     __doc__ = """UNet model used to estimate noise.
 
     Input:
-        x: tensor of shape (N, in_channels, H, W)
-        time_emb: time embedding tensor of shape (N, time_emb_dim) or None if the block doesn't use time conditioning
-        y: classes tensor of shape (N) or None if the block doesn't use class conditioning
+        x: tensor of shape (N, in_channels, H, W)
+        time_emb: time embedding tensor of shape (N, time_emb_dim) or None if the block doesn't use time conditioning
+        y: classes tensor of shape (N) or None if the block doesn't use class conditioning
     Output:
         tensor of shape (N, out_channels, H, W)
     Args:
@@ -257,7 +257,7 @@ class UNet(nn.Module):
         norm="gn",
         num_groups=32,
         initial_pad=0,
-        out_init_conv_padding = 1
+        out_init_conv_padding=1
     ):
         super().__init__()
 
@@ -274,10 +274,10 @@ class UNet(nn.Module):
     
         # self.init_conv = nn.Conv2d(img_channels, base_channels, (1,3), padding=(0,1))
         # self.init_conv = nn.Conv2d(img_channels, base_channels, (1,5), padding=(0,2))
-        self.init_conv = nn.Conv2d(img_channels, base_channels, (1, out_init_conv_padding*2+1), padding=(0, out_init_conv_padding))
+        self.init_conv = nn.Conv2d(img_channels, base_channels, (1, out_init_conv_padding * 2 + 1), padding=(0, out_init_conv_padding))
 
         self.out_norm = get_norm(norm, base_channels, num_groups)
-        self.out_conv = nn.Conv2d(base_channels, img_channels, (1, out_init_conv_padding*2+1), padding=(0, out_init_conv_padding))
+        self.out_conv = nn.Conv2d(base_channels, img_channels, (1, out_init_conv_padding * 2 + 1), padding=(0, out_init_conv_padding))
         # self.out_conv = nn.Conv2d(base_channels, img_channels, (1,3), padding=(0,1))
         # self.init_conv = nn.Conv2d(img_channels, base_channels, (1,5), padding=(0,2))
 
@@ -381,15 +381,18 @@ class UNet(nn.Module):
 
         skips = [x]
 
-        for layer in self.downs:  # 进行降采样，将输入的x逐渐压缩
+        # Downsampling path: apply residual/downsample blocks and collect skip connections
+        for layer in self.downs:
             x = layer(x, time_emb, y)
             # print('x2.shape = ', x.shape)
             skips.append(x)
         
-        for layer in self.mid:    # 不变，在降采样的最低值处，级联多个模块。
+        # Middle blocks at the bottleneck
+        for layer in self.mid:
             x = layer(x, time_emb, y)
             # print('x3.shape = ', x.shape)
         
+        # Upsampling path: concatenate with corresponding skip features
         for layer in self.ups:
             if isinstance(layer, ResidualBlock):
                 # print('******************')
@@ -398,7 +401,7 @@ class UNet(nn.Module):
                 z = skips.pop()
                 # print('y.shape = ', z.shape)
                 
-                x = torch.cat([x, z], dim=1) # 进行上采样，且将之间降采样得到的中间x也作为已知输入。
+                x = torch.cat([x, z], dim=1)
             x = layer(x, time_emb, y)
 
         x = self.activation(self.out_norm(x))
