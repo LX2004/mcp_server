@@ -8,15 +8,16 @@ import torch
 import torch.nn as nn
 from net.Transformer_encoder import Predict_encoder
 
+
 class ResidualBlock(nn.Module):
-    def __init__(self, num_channels,kernel_size,padding):
+    def __init__(self, num_channels, kernel_size, padding):
         super(ResidualBlock, self).__init__()
         self.num_channels = num_channels
 
-        # 定义两个卷积层
+        # define two convolutional layers
         self.conv1 = nn.Conv1d(num_channels, num_channels, kernel_size=kernel_size, padding=padding)
         self.conv2 = nn.Conv1d(num_channels, num_channels, kernel_size=kernel_size, padding=padding)
-        self.batch_norm = nn.BatchNorm1d(num_channels) 
+        self.batch_norm = nn.BatchNorm1d(num_channels)
 
         self.ac = nn.LeakyReLU()
         
@@ -24,7 +25,7 @@ class ResidualBlock(nn.Module):
         res = x
         for _ in range(2):
             res = self.conv1(res)
-            res = self.batch_norm(res) 
+            res = self.batch_norm(res)
             # res = F.relu(res)
             res = self.ac(res)
 
@@ -34,29 +35,48 @@ class ResidualBlock(nn.Module):
             
         return x + res
     
+
 class Predict_transformer_bio(torch.nn.Module):
-    def __init__(self,params):
+    def __init__(self, params):
         super(Predict_transformer_bio, self).__init__()
 
         self.dropout_rate_fc = params['dropout_rate_fc']
         self.relu = nn.ReLU()
 
-        self.trans_ori_pos = Predict_encoder(nhead = params['num_head1'],layers = params['transformer_num_layers1'],hidden_dim=params['hidden_dim1'],latent_dim=params['latent_dim1'],embedding_dim=params['embedding_dim1'],seq_len=params['seq_len'],probs=params['dropout_rate1'],device='cuda')
-        self.trans_dim_pos = Predict_encoder(nhead = params['num_head2'],layers = params['transformer_num_layers2'],hidden_dim=params['hidden_dim2'],latent_dim=params['latent_dim2'],embedding_dim=params['embedding_dim2'],seq_len=params['seq_len'],probs=params['dropout_rate2'],device='cuda')
+        self.trans_ori_pos = Predict_encoder(
+            nhead=params['num_head1'],
+            layers=params['transformer_num_layers1'],
+            hidden_dim=params['hidden_dim1'],
+            latent_dim=params['latent_dim1'],
+            embedding_dim=params['embedding_dim1'],
+            seq_len=params['seq_len'],
+            probs=params['dropout_rate1'],
+            device='cuda'
+        )
+        self.trans_dim_pos = Predict_encoder(
+            nhead=params['num_head2'],
+            layers=params['transformer_num_layers2'],
+            hidden_dim=params['hidden_dim2'],
+            latent_dim=params['latent_dim2'],
+            embedding_dim=params['embedding_dim2'],
+            seq_len=params['seq_len'],
+            probs=params['dropout_rate2'],
+            device='cuda'
+        )
         # self.trans_all = Predict_encoder(nhead = 4,layers=4,hidden_dim=4,latent_dim=64,embedding_dim=100,seq_len=100,probs=0.1,device='cuda')
         
-        # Define the layers as PyTorch modules
+        # define layers as PyTorch modules
         self.embedding_ori = torch.nn.Embedding(100, params['embedding_dim1'])
         self.embedding_dim = torch.nn.Embedding(100, params['embedding_dim2'])
         # self.embedding_pos = torch.nn.Embedding(100, params['embedding_dim'])
         
-        # dropout层
+        # dropout
         self.ac = nn.LeakyReLU()
         self.dropout = nn.Dropout(p=self.dropout_rate_fc)
         
-        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'] + 5,params['fc_hidden1'])
-        self.final_fc2 = nn.Linear(params['fc_hidden1'],params['fc_hidden2'])
-        self.final_fc3 = nn.Linear(params['fc_hidden2'],1)
+        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'] + 5, params['fc_hidden1'])
+        self.final_fc2 = nn.Linear(params['fc_hidden1'], params['fc_hidden2'])
+        self.final_fc3 = nn.Linear(params['fc_hidden2'], 1)
         # self.bio_fc1 = nn.Linear(13, params['fc_hidden1'])
         
     def forward(self, X, bio):
@@ -68,7 +88,6 @@ class Predict_transformer_bio(torch.nn.Module):
         input_ori = x[:, 0, :]
         input_dim = x[:, 1, :]
 
-        
         # print('start embedding')
         embeded_ori = self.embedding_ori(input_ori)
         embeded_dim = self.embedding_dim(input_dim)
@@ -78,7 +97,7 @@ class Predict_transformer_bio(torch.nn.Module):
         dim_pos = self.trans_dim_pos(embeded_dim)
         # print('end transformer encoder')
         
-        output = torch.cat((ori_pos, dim_pos, bio), dim=-1) # 将transformer的输出和生物信息相融合
+        output = torch.cat((ori_pos, dim_pos, bio), dim=-1)
         # output = self.mlp(ori_dim_pos)
         
         output = self.final_fc1(output)
@@ -99,25 +118,43 @@ class Predict_transformer_bio(torch.nn.Module):
 
 
 class Predict_transformer_bacillus(torch.nn.Module):
-    def __init__(self,params):
+    def __init__(self, params):
         super(Predict_transformer_bacillus, self).__init__()
 
         self.dropout_rate_fc = params['dropout_rate_fc']
         self.relu = nn.ReLU()
 
-        self.trans_ori_pos = Predict_encoder(nhead = params['num_head1'],layers = params['transformer_num_layers1'],hidden_dim=params['hidden_dim1'],latent_dim=params['latent_dim1'],embedding_dim=params['embedding_dim1'],seq_len=params['seq_len'],probs=params['dropout_rate1'],device='cuda')
-        self.trans_dim_pos = Predict_encoder(nhead = params['num_head2'],layers = params['transformer_num_layers2'],hidden_dim=params['hidden_dim2'],latent_dim=params['latent_dim2'],embedding_dim=params['embedding_dim2'],seq_len=params['seq_len'],probs=params['dropout_rate2'],device='cuda')
+        self.trans_ori_pos = Predict_encoder(
+            nhead=params['num_head1'],
+            layers=params['transformer_num_layers1'],
+            hidden_dim=params['hidden_dim1'],
+            latent_dim=params['latent_dim1'],
+            embedding_dim=params['embedding_dim1'],
+            seq_len=params['seq_len'],
+            probs=params['dropout_rate1'],
+            device='cuda'
+        )
+        self.trans_dim_pos = Predict_encoder(
+            nhead=params['num_head2'],
+            layers=params['transformer_num_layers2'],
+            hidden_dim=params['hidden_dim2'],
+            latent_dim=params['latent_dim2'],
+            embedding_dim=params['embedding_dim2'],
+            seq_len=params['seq_len'],
+            probs=params['dropout_rate2'],
+            device='cuda'
+        )
 
         self.embedding_ori = torch.nn.Embedding(100, params['embedding_dim1'])
         self.embedding_dim = torch.nn.Embedding(100, params['embedding_dim2'])
 
-        # dropout层
+        # dropout
         self.ac = nn.LeakyReLU()
         self.dropout = nn.Dropout(p=self.dropout_rate_fc)
         
-        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'] + 2,params['fc_hidden1']) # 其中3+3+2+1=9为生物信息的预留位置
-        self.final_fc2 = nn.Linear(params['fc_hidden1'],params['fc_hidden2'])
-        self.final_fc3 = nn.Linear(params['fc_hidden2'],1)
+        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'] + 2, params['fc_hidden1'])
+        self.final_fc2 = nn.Linear(params['fc_hidden1'], params['fc_hidden2'])
+        self.final_fc3 = nn.Linear(params['fc_hidden2'], 1)
 
         
     def forward(self, X, bio):
@@ -135,7 +172,7 @@ class Predict_transformer_bacillus(torch.nn.Module):
         dim_pos = self.trans_dim_pos(embeded_dim)
         # print('end transformer encoder')
         
-        output = torch.cat((ori_pos, dim_pos, bio), dim=-1) # 将transformer的输出和生物信息相融合
+        output = torch.cat((ori_pos, dim_pos, bio), dim=-1)
         # output = self.mlp(ori_dim_pos)
         
         output = self.final_fc1(output)
@@ -152,28 +189,45 @@ class Predict_transformer_bacillus(torch.nn.Module):
 
 
 class Predict_Staphylococcus_aureus(torch.nn.Module):
-    def __init__(self,params):
+    def __init__(self, params):
         super(Predict_Staphylococcus_aureus, self).__init__()
 
         self.dropout_rate_fc = params['dropout_rate_fc']
         self.relu = nn.ReLU()
 
-        self.trans_ori_pos = Predict_encoder(nhead = params['num_head1'],layers = params['transformer_num_layers1'],hidden_dim=params['hidden_dim1'],latent_dim=params['latent_dim1'],embedding_dim=params['embedding_dim1'],seq_len=params['seq_len'],probs=params['dropout_rate1'],device='cuda')
-        self.trans_dim_pos = Predict_encoder(nhead = params['num_head2'],layers = params['transformer_num_layers2'],hidden_dim=params['hidden_dim2'],latent_dim=params['latent_dim2'],embedding_dim=params['embedding_dim2'],seq_len=params['seq_len'],probs=params['dropout_rate2'],device='cuda')
+        self.trans_ori_pos = Predict_encoder(
+            nhead=params['num_head1'],
+            layers=params['transformer_num_layers1'],
+            hidden_dim=params['hidden_dim1'],
+            latent_dim=params['latent_dim1'],
+            embedding_dim=params['embedding_dim1'],
+            seq_len=params['seq_len'],
+            probs=params['dropout_rate1'],
+            device='cuda'
+        )
+        self.trans_dim_pos = Predict_encoder(
+            nhead=params['num_head2'],
+            layers=params['transformer_num_layers2'],
+            hidden_dim=params['hidden_dim2'],
+            latent_dim=params['latent_dim2'],
+            embedding_dim=params['embedding_dim2'],
+            seq_len=params['seq_len'],
+            probs=params['dropout_rate2'],
+            device='cuda'
+        )
         # self.trans_all = Predict_encoder(nhead = 4,layers=4,hidden_dim=4,latent_dim=64,embedding_dim=100,seq_len=100,probs=0.1,device='cuda')
         
-        # Define the layers as PyTorch modules
+        # define layers as PyTorch modules
         self.embedding_ori = torch.nn.Embedding(100, params['embedding_dim1'])
         self.embedding_dim = torch.nn.Embedding(100, params['embedding_dim2'])
 
-        
-        # dropout层
+        # dropout
         self.ac = nn.LeakyReLU()
         self.dropout = nn.Dropout(p=self.dropout_rate_fc)
         
-        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'] + 2,params['fc_hidden1']) # 其中3+3+2+1=9为生物信息的预留位置
-        self.final_fc2 = nn.Linear(params['fc_hidden1'],params['fc_hidden2'])
-        self.final_fc3 = nn.Linear(params['fc_hidden2'],1)
+        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'] + 2, params['fc_hidden1'])
+        self.final_fc2 = nn.Linear(params['fc_hidden1'], params['fc_hidden2'])
+        self.final_fc3 = nn.Linear(params['fc_hidden2'], 1)
         # self.bio_fc1 = nn.Linear(13, params['fc_hidden1'])
         
     def forward(self, X, bio):
@@ -195,7 +249,7 @@ class Predict_Staphylococcus_aureus(torch.nn.Module):
         dim_pos = self.trans_dim_pos(embeded_dim)
         # print('end transformer encoder')
         
-        output = torch.cat((ori_pos, dim_pos, bio), dim=-1) # 将transformer的输出和生物信息相融合
+        output = torch.cat((ori_pos, dim_pos, bio), dim=-1)
         # output = self.mlp(ori_dim_pos)
         
         output = self.final_fc1(output)
@@ -213,28 +267,46 @@ class Predict_Staphylococcus_aureus(torch.nn.Module):
 
 
 class Predict_transformer_E_lim(torch.nn.Module):
-    def __init__(self,params):
+    def __init__(self, params):
         super(Predict_transformer_E_lim, self).__init__()
 
         self.dropout_rate_fc = params['dropout_rate_fc']
         self.relu = nn.ReLU()
 
-        self.trans_ori_pos = Predict_encoder(nhead = params['num_head1'],layers = params['transformer_num_layers1'],hidden_dim=params['hidden_dim1'],latent_dim=params['latent_dim1'],embedding_dim=params['embedding_dim1'],seq_len=params['seq_len'],probs=params['dropout_rate1'],device='cuda')
-        self.trans_dim_pos = Predict_encoder(nhead = params['num_head2'],layers = params['transformer_num_layers2'],hidden_dim=params['hidden_dim2'],latent_dim=params['latent_dim2'],embedding_dim=params['embedding_dim2'],seq_len=params['seq_len'],probs=params['dropout_rate2'],device='cuda')
+        self.trans_ori_pos = Predict_encoder(
+            nhead=params['num_head1'],
+            layers=params['transformer_num_layers1'],
+            hidden_dim=params['hidden_dim1'],
+            latent_dim=params['latent_dim1'],
+            embedding_dim=params['embedding_dim1'],
+            seq_len=params['seq_len'],
+            probs=params['dropout_rate1'],
+            device='cuda'
+        )
+        self.trans_dim_pos = Predict_encoder(
+            nhead=params['num_head2'],
+            layers=params['transformer_num_layers2'],
+            hidden_dim=params['hidden_dim2'],
+            latent_dim=params['latent_dim2'],
+            embedding_dim=params['embedding_dim2'],
+            seq_len=params['seq_len'],
+            probs=params['dropout_rate2'],
+            device='cuda'
+        )
         # self.trans_all = Predict_encoder(nhead = 4,layers=4,hidden_dim=4,latent_dim=64,embedding_dim=100,seq_len=100,probs=0.1,device='cuda')
         
-        # Define the layers as PyTorch modules
+        # define layers as PyTorch modules
         self.embedding_ori = torch.nn.Embedding(100, params['embedding_dim1'])
         self.embedding_dim = torch.nn.Embedding(100, params['embedding_dim2'])
         # self.embedding_pos = torch.nn.Embedding(100, params['embedding_dim'])
 
-        # dropout层
+        # dropout
         self.ac = nn.LeakyReLU()
         self.dropout = nn.Dropout(p=self.dropout_rate_fc)
         
-        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'] + 3,params['fc_hidden1']) # 其中3+3+2+1=9为生物信息的预留位置
-        self.final_fc2 = nn.Linear(params['fc_hidden1'],params['fc_hidden2'])
-        self.final_fc3 = nn.Linear(params['fc_hidden2'],1)
+        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'] + 3, params['fc_hidden1'])
+        self.final_fc2 = nn.Linear(params['fc_hidden1'], params['fc_hidden2'])
+        self.final_fc3 = nn.Linear(params['fc_hidden2'], 1)
         # self.bio_fc1 = nn.Linear(13, params['fc_hidden1'])
         
     def forward(self, X, bio):
@@ -250,14 +322,13 @@ class Predict_transformer_E_lim(torch.nn.Module):
         embeded_dim = self.embedding_dim(input_dim)
         # embeded_pos = self.embedding_pos(input_pos)
         
-        # 进入卷积模块
+        # enter convolution module
 
-        
         ori_pos = self.trans_ori_pos(embeded_ori)
         dim_pos = self.trans_dim_pos(embeded_dim)
         # print('end transformer encoder')
         
-        output = torch.cat((ori_pos, dim_pos, bio), dim=-1) # 将transformer的输出和生物信息相融合
+        output = torch.cat((ori_pos, dim_pos, bio), dim=-1)
         # output = self.mlp(ori_dim_pos)
         
         output = self.final_fc1(output)
@@ -276,35 +347,52 @@ class Predict_transformer_E_lim(torch.nn.Module):
 
 
 class Predict_transformer_remove_ntarget(torch.nn.Module):
-    def __init__(self,params):
+    def __init__(self, params):
         super(Predict_transformer_remove_ntarget, self).__init__()
 
         self.dropout_rate_fc = params['dropout_rate_fc']
         self.relu = nn.ReLU()
 
-        self.trans_ori_pos = Predict_encoder(nhead = params['num_head1'],layers = params['transformer_num_layers1'],hidden_dim=params['hidden_dim1'],latent_dim=params['latent_dim1'],embedding_dim=params['embedding_dim1'],seq_len=params['seq_len'],probs=params['dropout_rate1'],device='cuda')
-        self.trans_dim_pos = Predict_encoder(nhead = params['num_head2'],layers = params['transformer_num_layers2'],hidden_dim=params['hidden_dim2'],latent_dim=params['latent_dim2'],embedding_dim=params['embedding_dim2'],seq_len=params['seq_len'],probs=params['dropout_rate2'],device='cuda')
+        self.trans_ori_pos = Predict_encoder(
+            nhead=params['num_head1'],
+            layers=params['transformer_num_layers1'],
+            hidden_dim=params['hidden_dim1'],
+            latent_dim=params['latent_dim1'],
+            embedding_dim=params['embedding_dim1'],
+            seq_len=params['seq_len'],
+            probs=params['dropout_rate1'],
+            device='cuda'
+        )
+        self.trans_dim_pos = Predict_encoder(
+            nhead=params['num_head2'],
+            layers=params['transformer_num_layers2'],
+            hidden_dim=params['hidden_dim2'],
+            latent_dim=params['latent_dim2'],
+            embedding_dim=params['embedding_dim2'],
+            seq_len=params['seq_len'],
+            probs=params['dropout_rate2'],
+            device='cuda'
+        )
         # self.trans_all = Predict_encoder(nhead = 4,layers=4,hidden_dim=4,latent_dim=64,embedding_dim=100,seq_len=100,probs=0.1,device='cuda')
         
-        # Define the layers as PyTorch modules
+        # define layers as PyTorch modules
         self.embedding_ori = torch.nn.Embedding(100, params['embedding_dim1'])
         self.embedding_dim = torch.nn.Embedding(100, params['embedding_dim2'])
         # self.embedding_pos = torch.nn.Embedding(100, params['embedding_dim'])
         
-        # Define 1D-CNN
+        # define 1D-CNN
         # self.cnn_ori = ResidualBlock(num_channels=100,kernel_size=2*params['conv1d_padding']+1,padding=params['conv1d_padding'])
         # self.cnn_dim = ResidualBlock(num_channels=100,kernel_size=2*params['conv1d_padding']+1,padding=params['conv1d_padding'])
         # self.cnn_all = ResidualBlock(num_channels=100,kernel_size=2*params['conv1d_padding']+1,padding=params['conv1d_padding'])
         # self.cnn_ori_dim = ResidualBlock(num_channels=100,kernel_size=2*params['conv1d_padding']+1,padding=params['conv1d_padding'])
 
-        
-        # dropout层
+        # dropout
         self.ac = nn.LeakyReLU()
         self.dropout = nn.Dropout(p=self.dropout_rate_fc)
         
-        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'] + 8,params['fc_hidden1']) # 其中3+3+2+1=9为生物信息的预留位置
-        self.final_fc2 = nn.Linear(params['fc_hidden1'],params['fc_hidden2'])
-        self.final_fc3 = nn.Linear(params['fc_hidden2'],1)
+        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'] + 8, params['fc_hidden1'])
+        self.final_fc2 = nn.Linear(params['fc_hidden1'], params['fc_hidden2'])
+        self.final_fc3 = nn.Linear(params['fc_hidden2'], 1)
         # self.bio_fc1 = nn.Linear(13, params['fc_hidden1'])
         
     def forward(self, X, bio):
@@ -329,7 +417,7 @@ class Predict_transformer_remove_ntarget(torch.nn.Module):
         embeded_dim = self.embedding_dim(input_dim)
         # embeded_pos = self.embedding_pos(input_pos)
         
-        # 进入卷积模块
+        # enter convolution module
         
         # embeded_dim = self.cnn_dim(embeded_dim)
         # embeded_ori = self.cnn_ori(embeded_ori)
@@ -346,7 +434,7 @@ class Predict_transformer_remove_ntarget(torch.nn.Module):
         dim_pos = self.trans_dim_pos(embeded_dim)
         # print('end transformer encoder')
         
-        output = torch.cat((ori_pos, dim_pos, bio), dim=-1) # 将transformer的输出和生物信息相融合
+        output = torch.cat((ori_pos, dim_pos, bio), dim=-1)
         # output = self.mlp(ori_dim_pos)
         
         output = self.final_fc1(output)
@@ -365,8 +453,7 @@ class Predict_transformer_remove_ntarget(torch.nn.Module):
         # pdb.set_trace()
         return self.relu(output)
 
-        
-        
+
 class MLP(torch.nn.Module):
     def __init__(self, input_dim, output_dim, hidden_layer_num, hidden_layer_units_num, dropout):
         super(MLP, self).__init__()
@@ -387,28 +474,45 @@ class MLP(torch.nn.Module):
 
 
 class Predict_ori_dim_e_coli_effiency(torch.nn.Module):
-    def __init__(self,params):
+    def __init__(self, params):
         super(Predict_ori_dim_e_coli_effiency, self).__init__()
 
         self.dropout_rate_fc = params['dropout_rate_fc']
         self.relu = nn.ReLU()
 
-        self.trans_ori_pos = Predict_encoder(nhead = params['num_head1'],layers = params['transformer_num_layers1'],hidden_dim=params['hidden_dim1'],latent_dim=params['latent_dim1'],embedding_dim=params['embedding_dim1'],seq_len=params['seq_len'],probs=params['dropout_rate1'],device='cuda')
-        self.trans_dim_pos = Predict_encoder(nhead = params['num_head2'],layers = params['transformer_num_layers2'],hidden_dim=params['hidden_dim2'],latent_dim=params['latent_dim2'],embedding_dim=params['embedding_dim2'],seq_len=params['seq_len'],probs=params['dropout_rate2'],device='cuda')
+        self.trans_ori_pos = Predict_encoder(
+            nhead=params['num_head1'],
+            layers=params['transformer_num_layers1'],
+            hidden_dim=params['hidden_dim1'],
+            latent_dim=params['latent_dim1'],
+            embedding_dim=params['embedding_dim1'],
+            seq_len=params['seq_len'],
+            probs=params['dropout_rate1'],
+            device='cuda'
+        )
+        self.trans_dim_pos = Predict_encoder(
+            nhead=params['num_head2'],
+            layers=params['transformer_num_layers2'],
+            hidden_dim=params['hidden_dim2'],
+            latent_dim=params['latent_dim2'],
+            embedding_dim=params['embedding_dim2'],
+            seq_len=params['seq_len'],
+            probs=params['dropout_rate2'],
+            device='cuda'
+        )
         # self.trans_all = Predict_encoder(nhead = 4,layers=4,hidden_dim=4,latent_dim=64,embedding_dim=100,seq_len=100,probs=0.1,device='cuda')
         
-        # Define the layers as PyTorch modules
+        # define layers as PyTorch modules
         self.embedding_ori = torch.nn.Embedding(100, params['embedding_dim1'])
         self.embedding_dim = torch.nn.Embedding(100, params['embedding_dim2'])
 
-        
-        # dropout层
+        # dropout
         self.ac = nn.LeakyReLU()
         self.dropout = nn.Dropout(p=self.dropout_rate_fc)
         
-        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'],params['fc_hidden1']) # 其中3+3+2+1=9为生物信息的预留位置
-        self.final_fc2 = nn.Linear(params['fc_hidden1'],params['fc_hidden2'])
-        self.final_fc3 = nn.Linear(params['fc_hidden2'],1)
+        self.final_fc1 = nn.Linear(params['latent_dim1'] + params['latent_dim2'], params['fc_hidden1'])
+        self.final_fc2 = nn.Linear(params['fc_hidden1'], params['fc_hidden2'])
+        self.final_fc3 = nn.Linear(params['fc_hidden2'], 1)
         # self.bio_fc1 = nn.Linear(13, params['fc_hidden1'])
         
     def forward(self, X):
@@ -424,8 +528,7 @@ class Predict_ori_dim_e_coli_effiency(torch.nn.Module):
         ori_pos = self.trans_ori_pos(embeded_ori)
         dim_pos = self.trans_dim_pos(embeded_dim)
 
-        
-        output = torch.cat((ori_pos, dim_pos), dim=-1) # 将transformer的输出和生物信息相融合
+        output = torch.cat((ori_pos, dim_pos), dim=-1)
         output = self.final_fc1(output)
         output = self.ac(output)
         # output = self.relu(output)
