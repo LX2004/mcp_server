@@ -6,10 +6,10 @@ import script_utils
 import os
 
 def get_sequence_list_from_csv(file_path):
-    # 读取指定列
+    # Read specified columns
     df = pd.read_csv(file_path, usecols=["switch", "stem1", "stem2"])
     
-    # 将每行三个元素拼接成一个字符串，形成列表
+    # Concatenate three columns in each row into a single string
     sequence_list = df.apply(lambda row: row['switch'] + row['stem1'] + row['stem2'], axis=1).tolist()
     
     return sequence_list
@@ -19,7 +19,7 @@ def main():
 
     args = create_argparser().parse_args()
 
-    '''准备数据集'''
+    '''Prepare dataset'''
     nat = get_sequence_list_from_csv(file_path='/home/leixin/mcp_server/switch/data/Toehold_mRNA_Dataset_cleanplus.csv')
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -48,9 +48,9 @@ def main():
 
                 samples = samples.to('cpu').detach().numpy()
 
-                for i in range(samples.shape[0]):
+                for j in range(samples.shape[0]):
 
-                    decoded_sequence = decode_one_hot(samples[i])
+                    decoded_sequence = decode_one_hot(samples[j])
                     sequences.append("A" + decoded_sequence)
 
             k_mer_fre_cor = calculate_overall_kmer_correlation(dataset1=sequences, dataset2=nat, k=6)
@@ -59,8 +59,10 @@ def main():
                     # os.remove(model_path)
                     # continue
 
-                # make_fasta_file(sequences,path=f'../sequences/Not_all_promoter-ddpm-2024-04-22-15-58-iteration-{epoch}_6_mer_fre_cor={k_mer_fre_cor}.fasta') # 将序列写入fasta文件。
-            make_fasta_file(sequences,path=f'../sequence/Switche_epoch={epoch}_6_mer_fre_cor={k_mer_fre_cor}.fasta') # 将序列写入fasta文件。
+            make_fasta_file(
+                sequences,
+                path=f'../sequence/Switche_epoch={epoch}_6_mer_fre_cor={k_mer_fre_cor}.fasta'
+            )  # write sequences to fasta file.
 
     except KeyboardInterrupt:
         print("Keyboard interrupt, generation finished early")
