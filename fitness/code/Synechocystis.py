@@ -94,7 +94,7 @@ def make_dataset(guides, oris, lights):
             print('sequence = ',sequence)
             # continue
         
-        # 进行独热向量编码
+        # one-hot encoding for ori
         if ori in base_choice_ori:
 
             if ori == '+':
@@ -107,7 +107,7 @@ def make_dataset(guides, oris, lights):
             raise ValueError(f"The input ori string '{ori}' is not in the allowed list and cannot be one-hot encoded.")
             # continue
 
-        # 进行独热向量编码
+        # one-hot encoding for light
         # print(type(light))
         if light in base_choice_light:
 
@@ -125,7 +125,7 @@ def make_dataset(guides, oris, lights):
             # continue
         # print('!!!!!')
 
-        feature = Dimer_split_seqs(sequence)  # 所有序列作为输入
+        feature = Dimer_split_seqs(sequence)  # all sequences as input
         feature = np.array(feature)
         feature = feature.astype(int)
 
@@ -142,7 +142,7 @@ def encode_list(seqList):
 
     return X_seq
 
-def plot_target_label(seq, bio, model, device): # 绘制实际值和预测值的分布
+def plot_target_label(seq, bio, model, device): # plot distribution of ground truth and predictions
 
     # device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
     # torch.cuda.set_device(2)
