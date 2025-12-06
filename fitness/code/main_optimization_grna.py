@@ -6,16 +6,14 @@ import pandas as pd
 
 
 def find_pattern_substrings(seq, length=20):
-
     """
-    根据给定的靶向序列seq，查找grna。
+    Find candidate gRNAs in a given target sequence seq.
     """
-    
     substrings = []
-    for i in range(len(seq) - length - 2):  # -2 是因为 'NGG' 长度为3
+    for i in range(len(seq) - length - 2):  # -2 because 'NGG' length is 3
         candidate = seq[i:i+length]
         pam = seq[i+length:i+length+3]
-        # 检查 PAM 是否为 N + GG
+        # check PAM pattern N + GG
         if len(pam) == 3 and pam[1:] == "GG":
             substrings.append(candidate)
     return substrings
@@ -39,7 +37,7 @@ def opt_grna(seq):
             "grna": sgrna,
             "off target count": num_off_targets,
             "efficiency": efficiency.item(),
-            'Binding energy (kcal/mol)':grna_energy,
+            'Binding energy (kcal/mol)': grna_energy,
             'fitness': fitness,
         }
         
@@ -47,7 +45,6 @@ def opt_grna(seq):
 
     df = pd.DataFrame(results)
     return df
-
 
 
 res = opt_grna(seq='CTAGCATCGACTAGCTACGATCAGCTACGACTACTACGATCGACTACGATCAGCTACGTACGGCATCGACTGGCATCGACGTGGCTACAGCTGGCATACGACTAGCTACTACGACTATC')
