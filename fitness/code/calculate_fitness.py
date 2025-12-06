@@ -79,4 +79,345 @@ def process_count_columns(df: pd.DataFrame) -> pd.DataFrame:
     df['start_mean'] = df['start_count'].apply(
         lambda x: np.mean(list(map(int, x.split(',')))))
     df['end_mean'] = df['end_count'].apply(
-        lambda x: np.mean(list(map(int, x.sp
+        lambda x: np.mean(list(map(int, x.split(',')))))
+    return df
+
+def compute_pvalues(df: pd.DataFrame) -> pd.DataFrame:
+    """执行配对t检验计算p值"""
+    p_values = []
+    for _, row in df.iterrows():
+        start = list(map(int, row['start_count'].split(',')))
+        end = list(map(int, row['end_count'].split(',')))
+        if len(start) == len(end) and len(start) > 1:
+            _, p_val = ttest_rel(end, start)
+        else:
+            p_val = float('nan')
+        p_values.append(p_val)
+    df['p_value'] = p_values
+    return df
+
+def adjust_pvalues(df: pd.DataFrame) -> pd.DataFrame:
+    """执行Benjamini-Hochberg校正"""
+    df = df.copy()
+    reject, padj, _, _ = multipletests(
+        df['p_value'].fillna(1), 
+        method='fdr_bh'
+    )
+    df['padj'] = padj
+    return df
+
+def load_guide_rnas(guide_rnafile: pathlib.Path) -> pd.DataFrame:
+    """加载并预处理靶标文件"""
+    logger.info(f"Loading guide_rna file: {guide_rnafile}")
+    try:
+        df = pd.read_csv(
+            guide_rnafile,
+            sep='\t',
+            dtype={'guide_rna': 'category'}
+        )
+    except pd.errors.EmptyDataError:
+        raise ValueError("Target file is empty or corrupt")
+    
+    is_valid, msg = validate_dataframe(df, Config.REQUIRED_COLUMNS)
+    if not is_valid:
+        raise ValueError(msg)
+    
+    df = process_count_columns(df)
+    return df
+
+
+def load_tsv(tsv) -> pd.DataFrame:
+    
+
+    try:
+        tsv
+        tsv['guide_rna'] = tsv['guide_rna'].astype('category')
+        
+    except pd.errors.EmptyDataError:
+        raise ValueError("Target file is empty or corrupt")
+    
+    is_valid, msg = validate_dataframe(tsv, Config.REQUIRED_COLUMNS)
+    if not is_valid:
+        raise ValueError(msg)
+    
+    tsv = process_count_columns(tsv)
+    return tsv
+
+def compute_normalized_log_counts(df: pd.DataFrame, count_col: str) -> pd.Series:
+    """标准化处理并返回对数计数值"""
+    logger.debug(f"Processing counts from {count_col}")
+    # df = df.set_index('guide_rna')
+    total_reads = df[count_col].sum()
+    if total_reads == 0:
+        raise ValueError("Total reads sum to zero")
+    
+    norm_factor = Config.NORM_SIZE / total_reads
+    normalized = df[count_col] * norm_factor
+    return np.log2(normalized.clip(Config.PSEUDO))
+
+def compute_gamma(
+    df: pd.DataFrame,
+    controlset: Set[str],
+    gt: int
+) -> pd.DataFrame:
+    """核心计算逻辑"""
+    logger.info("Computing gamma values")
+    try:
+        # 计算标准化对数计数
+        df = df.set_index('guide_rna')
+        start = compute_normalized_log_counts(df, 'start_mean')
+        end = compute_normalized_log_counts(df, 'end_mean')
+
+        # 生成起始终止掩码
+        start_mask = df['start_mean'] > Config.MIN_START_READS
+        start_mask.name = 'start_mask'
+        end_mask = df['end_mean'] > Config.MIN_START_READS
+        end_mask.name = 'end_mask'
+        
+        # 计算差异与去中心化
+        diff = end - start
+        diff = diff.where(start_mask, np.nan)
+        diff = diff.where(end_mask, np.nan)
+        
+        # 计算gamma值
+        center = diff.loc[diff.index.isin(controlset)].median()
+        gamma = (diff - center) / gt
+        gamma.name = 'gamma'
+        
+        # 合并结果
+        result = pd.DataFrame({
+            'gamma': gamma,
+            'start_mask': start_mask
+        })
+        result.index.name = 'guide_rna'
+        return result
+    except Exception as e:
+        logger.error("Gamma computation failed", exc_info=True)
+        raise
+
+def assign_random_coordinates(gene_data):
+    import random
+    # Create a new list to avoid mutating original data
+    result = []
+    for item in gene_data:
+        new_item = item.copy()
+        new_item['xField'] = random.uniform(0, 10)
+        new_item['yField'] = random.uniform(0, 10)
+        result.append(new_item)
+    return result
+
+
+def add_necessity_column(df):
+    """添加必要性判断列"""
+    df = df.copy()
+    
+    # 处理无穷值和零值
+    with np.errstate(divide='ignore', invalid='ignore'):
+        df['log2FoldChange'] = np.log2(df['FoldChange'])
+    
+    # 创建判断条件（自动处理NaN）
+    is_essential = (df['log2FoldChange'] < -1) & (df['padj'] < 0.05)
+    # df['Necessity'] = np.where(is_essential, 'essential', 'neutral')
+    df['essential'] = is_essential
+    
+    # 调整列顺序
+    # column_order = ['locus_tag', 'gene', 'guide_rna', 'Necessity', 'FoldChange', 'log2FoldChange', 'p_value', 'padj']
+    # return df[column_order]
+    return df
+
+from io import StringIO
+
+# 1. Read TSV file and convert to string
+def read_tsv_to_string(file_path):
+    # Read TSV file
+    df = pd.read_csv(file_path, sep='\t')
+    
+    # Convert DataFrame to string without index
+    df_string = df.to_string(index=False)
+    
+    return df_string
+
+# 2. Convert string to DataFrame and save as TSV
+def string_to_df_and_save_tsv(df_string, output_file_path):
+    # Use StringIO to wrap string as file-like object
+    data = StringIO(df_string)
+    
+    # Read string into DataFrame
+    df = pd.read_csv(data, sep='\t')
+    
+    # Save as TSV file
+    df.to_csv(output_file_path, sep='\t', index=False)
+
+    print(f"TSV file has been saved as {output_file_path}")
+
+
+def compute_main(tsv=None, growth=None):
+    try:
+        print('start calculate fitness!!!')
+
+        args = parse_args()
+        logger.info("Pipeline started")
+        # print('start calculate fitness!!!')
+
+        if tsv:
+
+            print('tsv = \n', tsv)
+            df = StringIO(tsv)
+
+            guide_rnas_df = pd.read_csv(df, sep='\t')
+
+            print('guide_rnas_df = \n', guide_rnas_df)
+            guide_rnas_df = load_tsv(tsv=guide_rnas_df)
+        
+        else: 
+            guide_rnas_df = load_guide_rnas(args.guide_rnafile)
+        
+         
+        controls = set(guide_rnas_df['guide_rna'].unique())
+        
+        # Compute gamma and fitness
+
+        if growth:
+            gamma_df = compute_gamma(guide_rnas_df, controls, growth)
+
+        else:
+            gamma_df = compute_gamma(guide_rnas_df, controls, args.growth)
+
+        gamma_df = gamma_df.reset_index()
+        
+        # Compute statistics
+        processed_df = compute_pvalues(guide_rnas_df)
+        processed_df = adjust_pvalues(processed_df)
+        
+        # Merge all results
+        final_df = pd.merge(
+            guide_rnas_df,
+            gamma_df,
+            on='guide_rna'
+        )
+        final_df = pd.merge(
+            final_df,
+            processed_df[['guide_rna', 'p_value', 'padj']],
+            on='guide_rna'
+        )
+        final_df['fitness'] = final_df['gamma'] + 1
+
+        # Generate FoldChange
+        final_df['FoldChange'] = final_df['end_mean'] / final_df['start_mean']
+
+        # Add necessity column
+        final_df = add_necessity_column(final_df)
+        df = final_df.drop(columns=['start_count', 'end_count'])
+        print('df = ', df)
+
+        columns_to_convert = ['start_mean', 'end_mean', 'p_value_x', 'gamma', 'p_value_y', 'padj', 'fitness', 'FoldChange', 'log2FoldChange']
+        # Ensure all specified columns are converted to float
+        df[columns_to_convert] = df[columns_to_convert].astype(float)
+
+        gene_essential = {}
+
+        for gene, ess in zip(df["gene"], df["essential"]):
+
+            if gene in gene_essential:
+                gene_essential[gene] = ess and gene_essential[gene]
+
+            else:
+                gene_essential[gene] = ess
+
+        gene_fitness = {}
+
+        for gene, fit in zip(df["gene"], df["fitness"]):
+
+            if gene in gene_fitness:
+                gene_fitness[gene] = (fit + gene_fitness[gene]) / 2
+
+            else:
+                gene_fitness[gene] = fit
+
+        # Data for graph
+        gene_ess_fit_Graph = [{"gene": label, "essential": gene_essential[label], "fitness": round(gene_fitness[label], 4), "sizeField": round(abs(gene_fitness[label])*20, 4), "seriesField": 0 if gene_fitness[label] > 0 else 1} for label in gene_essential]
+        # gene_ess_fit_Graph = [{"gene": label, "essential": "TRUE" if gene_essential[label] else "FALSE", "fitness": round(gene_fitness[label], 4), "sizeField": round(abs(gene_fitness[label])*20, 4), "seriesField": 0 if gene_fitness[label] > 0 else 1} for label in gene_essential]
+        gene_ess_fit_Graph = assign_random_coordinates(gene_data=gene_ess_fit_Graph)
+
+        # CSV string
+        csv = df.to_csv(index=False)
+        csv = csv.replace('True', 'TRUE').replace('False', 'FALSE')
+
+        return gene_ess_fit_Graph, csv
+
+    except Exception as e:
+        logger.critical(f"Pipeline failed: {str(e)}", exc_info=True)
+        return 1
+    
+
+
+def plot_gene_scatter(gene_data):
+    
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Prepare data for plotting
+    x = [item['xField'] for item in gene_data]
+    y = [item['yField'] for item in gene_data]
+    areas = [abs(item['sizeField']) * 200 for item in gene_data]
+    colors = ['red' if item['sizeField'] > 0 else 'blue' for item in gene_data]
+    
+    # Create figure
+    plt.figure(figsize=(10, 8))
+    
+    # Scatter plot
+    scatter = plt.scatter(
+        x, y,
+        s=areas,
+        c=colors,
+        alpha=0.6,
+        edgecolors='w',
+        linewidths=0.5
+    )
+    
+    # Legend
+    red_patch = plt.Line2D([0], [0], marker='o', color='w', 
+                          markerfacecolor='red', markersize=8, label='Fitness > 0')
+    blue_patch = plt.Line2D([0], [0], marker='o', color='w',
+                           markerfacecolor='blue', markersize=8, label='Fitness < 0')
+    plt.legend(handles=[red_patch, blue_patch])
+    
+    # Axes
+    plt.xlim(0, 10)
+    plt.ylim(0, 10)
+    plt.xlabel('X Coordinate', fontsize=12)
+    plt.ylabel('Y Coordinate', fontsize=12)
+    plt.title('Gene Fitness Scatter Plot', fontsize=14)
+    
+    # Grid
+    plt.grid(True, linestyle='--', alpha=0.6)
+    
+    plt.savefig('../result/gene_essential.png')
+    plt.show()
+
+# Example usage
+if __name__ == "__main__":
+
+#     data_string = """locus_tag\tgene\tguide_rna\tstart_count\tend_count
+# BSU00010\tdnaA\tCCCCCCCCCCCCCCCCCCC\t218,223,211\t22542,23242,22246
+# BSU00020\tcnaB\tTTTTTTTTTTTTTTTTTTTT\t101,101,121\t542,5562,512
+# BSU00030\tcnaC\tAAAAAAAAAAAAAAAAAAAA\t523,532,552\t92899,92899,92900
+# BSU00040\tcnaD\tCCCCCCCCCCCCCCCCCTT\t91002,90200,10201\t88103,89109,89101
+# BSU00050\tqnaA\tCCCCCCCCCACCCCCCCCAA\t22542,23242,22246\t218,223,201
+# BSU00060\tqnaC\tCCCCCCCCCACCCCCCCCTT\t22553,23242,22246\t200,203,121
+# BSU00070\tqnaF\tCCCCCCCCCACCCCCCCCAT\t22653,23242,28246\t200,203,101
+# BSU00080\tcnaB\tTTTTTTTTTTTTTTTTTCAT\t22653,23242,28246\t200,203,111"""
+
+    data_string ="""locus_tag\tgene\tguide_rna\tstart_count\tend_count
+BSU00010\tdnaA\tTCCCCCCCCCCCCCCCCCCC\t218,223,211\t22542,23242,22246
+BSU00020\tcnaB\tTTTTTTTTTTTTTTTTTTTT\t101,101,121\t542,5562,512
+BSU00030\tcnaC\tAAAAAAAAAAAAAAAAAAAA\t523,532,552\t92899,92899,92900
+BSU00040\tcnaD\tCCCCCCCCCCCCCCCCCCAT\t91002,90200,10201\t1399,1299,1401
+BSU00050\tcnaD\tACCCCCCCCCCCCCCCCCTT\t91002,90200,10201\t139,129,101"""
+
+    # print(sys.exit(compute_main(tsv=data_string)))
+    gene_ess_fit_Graph, csv = compute_main(tsv=data_string, growth=20)
+    plot_gene_scatter(gene_data = gene_ess_fit_Graph)
+
+    print('csv = \n', csv)
+    print(' gene_ess_fit_Graph = ', gene_ess_fit_Graph)
