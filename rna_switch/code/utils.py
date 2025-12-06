@@ -6,7 +6,7 @@ from scipy.stats import spearmanr
 import torch
 
 # -----------------------------------------------
-# One-hot 编码与解码
+# One-hot encoding and decoding
 # -----------------------------------------------
 
 def one_hot_encoding(sequence):
@@ -30,7 +30,7 @@ def decode_one_hot(one_hot_array):
     return ''.join(decoded_sequence)
 
 # -----------------------------------------------
-# k-mer 分析工具
+# k-mer analysis utilities
 # -----------------------------------------------
 def calculate_kmers(sequence, k):
     return [sequence[i:i+k] for i in range(len(sequence)-k+1)]
@@ -56,7 +56,7 @@ def calculate_overall_kmer_correlation(dataset1, dataset2, k, flag=False):
     return (s1, s2, correlation) if flag else correlation
 
 # -----------------------------------------------
-# 皮尔逊相关与回归评估指标
+# Pearson correlation and regression metrics
 # -----------------------------------------------
 def loss_pierxun(output, target):
     target_mean = torch.mean(target)
@@ -72,9 +72,9 @@ def loss_pierxun(output, target):
 
 def evaluate_regression_metrics(output, label):
     if len(output) != len(label):
-        raise ValueError("输出和标签的长度不一致")
+        raise ValueError("Output and label lengths do not match")
     if np.isnan(output).any() or np.isnan(label).any():
-        raise ValueError("输入数据中存在 NaN 值")
+        raise ValueError("NaN values detected in inputs")
     mse = np.mean((output - label) ** 2)
     ss_res = np.sum((label - output) ** 2)
     ss_tot = np.sum((label - np.mean(label)) ** 2)
@@ -86,12 +86,12 @@ def compute_correlation_coefficient(output, label):
     target = output
     prediction = label
     if np.isnan(prediction).any() or np.isnan(target).any():
-        print("数组中存在NaN值")
+        print("NaN values detected in arrays")
     if np.std(prediction) == 0:
-        print('预测数据没有波动')
+        print('Prediction has zero variance')
         return 0
     if np.std(target) == 0:
-        print('真实数据没有波动')
+        print('Target has zero variance')
         return 0
     mean_target = np.mean(target)
     mean_prediction = np.mean(prediction)
@@ -102,7 +102,7 @@ def compute_correlation_coefficient(output, label):
     return pearson_coefficient
 
 # -----------------------------------------------
-# 其他功能工具
+# Other utility functions
 # -----------------------------------------------
 def text_build_vocab():
     dic = [a for a in 'ATCG']
@@ -136,9 +136,9 @@ def make_fasta_file(sequences, path):
     if not os.path.exists(path):
         with open(path, 'w') as f:
             f.write("")
-        print(f"文件 {path} 不存在，已创建新文件。")
+        print(f"File {path} does not exist, created a new file.")
     else:
-        print(f"文件 {path} 已存在。")
+        print(f"File {path} already exists.")
     with open(path, 'w') as file:
         for i, seq in enumerate(sequences, start=1):
             seq = seq.upper()
