@@ -2,34 +2,34 @@ import RNA
 
 def analyze_rna_switch(switch_seq, trigger_seq, temperature=37):
     """
-    使用 ViennaRNA Python API 计算 RNA switch 的能量特征
+    Compute energy features of an RNA switch using the ViennaRNA Python API.
     """
 
     results = {}
 
-    # 设置计算参数
+    # set calculation parameters
     md = RNA.md()
     md.temperature = temperature
 
-    # 1. Switch 自身折叠能量 (MFE)
+    # 1. MFE of switch self-folding
     fc_self = RNA.fold_compound(switch_seq, md)
     structure, mfe_self = fc_self.mfe()
     results["MFE_self"] = mfe_self
     results["Structure_self"] = structure
 
-    # 2. Trigger + Switch 杂交能量 (Cofold)
+    # 2. Hybridization energy of trigger + switch (cofold)
     hybrid_seq = switch_seq + '&' + trigger_seq
     structure_hybrid, mfe_hybrid = RNA.cofold(hybrid_seq)
     results["MFE_hybrid"] = mfe_hybrid
     results["Structure_hybrid"] = structure_hybrid
 
-    # 3. ΔΔG_open 粗略估算
+    # 3. Approximate ΔΔG_open
     results["DeltaDeltaG_open"] = mfe_self - mfe_hybrid
 
     return results
 
 
-# 示例用法
+# Example usage
 if __name__ == "__main__":
     
     switch_seq = "AUGCAUUGAUGCUACGGAUACGUAGCUAUGCAUUGAUGCUACGGAU"
