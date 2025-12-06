@@ -158,28 +158,14 @@ uv --version
 
 
 
-1. Download the Server Poject File from:
-2. 在本地解压缩
-3. 打开压缩后的文件夹，目录如下：
+1. Download the Server Poject File from: [https://drive.google.com/drive/folders/1-QyJfEgeAT_6YG7RuxiROh1X15-F4LCU?usp=drive_link](https://drive.google.com/drive/folders/1-QyJfEgeAT_6YG7RuxiROh1X15-F4LCU?usp=drive_link)
+
+2. Extract the archive locally to obtain the `bio`, `data`, and `model` folders, and make sure they are in the same directory.
+
+3. Open the `bio` folder. Its contents are shown in the figure below.
 
 
-```text
-bio-mcp/
-├── rna_main_mcp.py              # MCP server entry point
-├── bio.py                       # Core bio-related logic
-├── rna_utils.py                 # RNA utilities
-├── rna_unet.py                  # RNA U-Net model
-├── rna_diffusion.py             # Diffusion models
-├── opt_promoter_main.py         # Promoter optimization
-├── promoter_utils*.py           # Promoter utilities
-├── fitness.py                   # Fitness calculations
-├── calculation_off_target.py    # Off-target calculations
-├── pyproject.toml               # Project & dependency configuration
-├── uv.lock                      # uv lockfile
-├── .python-version              # Optional Python version hint
-├── net/                         # Model weights (if present)
-└── README.md                    # This file
-```
+<img width="893" height="955" alt="image" src="https://github.com/user-attachments/assets/e2611ed6-22d3-4474-bb04-d1c5666671b1" />
 
 
 4. 
