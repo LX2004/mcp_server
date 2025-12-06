@@ -8,7 +8,7 @@ from torch.nn import functional as F
 
 class PositionalEncoding(nn.Module):
 
-    def __init__(self, d_model,device='cpu', max_len=100):
+    def __init__(self, d_model, device='cpu', max_len=100):
 
         super().__init__()
 
@@ -26,6 +26,7 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:, :x.size(1)]
         return x
 
+
 def scaled_dot_product(q, k, v, mask=None):
     d_k = q.size()[-1]
     attn_logits = torch.matmul(q, k.transpose(-2, -1))
@@ -35,6 +36,7 @@ def scaled_dot_product(q, k, v, mask=None):
     attention = F.softmax(attn_logits, dim=-1)
     values = torch.matmul(attention, v)
     return values, attention
+
 
 class MultiheadAttention(nn.Module):
 
@@ -46,11 +48,10 @@ class MultiheadAttention(nn.Module):
         self.num_heads = num_heads
         self.head_dim = embed_dim // num_heads
 
-        self.qkv_proj = nn.Linear(input_dim, 3*embed_dim)
+        self.qkv_proj = nn.Linear(input_dim, 3 * embed_dim)
         self.o_proj = nn.Linear(embed_dim, embed_dim)
 
         self._reset_parameters()
-
 
     def _reset_parameters(self):
         # Original Transformer initialization, see PyTorch documentation
@@ -65,13 +66,13 @@ class MultiheadAttention(nn.Module):
         qkv = self.qkv_proj(x)
 
         # Separate Q, K, V from linear output
-        qkv = qkv.reshape(batch_size, seq_length, self.num_heads, 3*self.head_dim)
-        qkv = qkv.permute(0, 2, 1, 3) # [Batch, Head, SeqLen, Dims]
+        qkv = qkv.reshape(batch_size, seq_length, self.num_heads, 3 * self.head_dim)
+        qkv = qkv.permute(0, 2, 1, 3)  # [Batch, Head, SeqLen, Dims]
         q, k, v = qkv.chunk(3, dim=-1)
 
         # Determine value outputs
         values, attention = scaled_dot_product(q, k, v, mask=mask)
-        values = values.permute(0, 2, 1, 3) # [Batch, SeqLen, Head, Dims]
+        values = values.permute(0, 2, 1, 3)  # [Batch, SeqLen, Head, Dims]
         values = values.reshape(batch_size, seq_length, embed_dim)
         o = self.o_proj(values)
 
@@ -109,7 +110,6 @@ class EncoderBlock(nn.Module):
         self.norm2 = nn.LayerNorm(input_dim)
         self.dropout = nn.Dropout(dropout)
 
-
     def forward(self, x, mask=None):
         # Attention part
         attn_out = self.self_attn(x, mask=mask)
@@ -131,7 +131,6 @@ class TransformerEncoder(nn.Module):
         self.layers = nn.ModuleList([EncoderBlock(**block_args) for _ in range(num_layers)])
 
     def forward(self, x, mask=None):
-        
         # print('x = ',x)
         for l in self.layers:
             x = l(x, mask=mask)
