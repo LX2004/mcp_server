@@ -4,8 +4,8 @@ from Bio import SeqIO
 
 def load_fasta_sequence(filepath="../data/ecoli.fasta"):
     """
-    从FASTA文件读取DNA序列，返回一个大写字符串
-    忽略描述行（以">"开头）
+    Read DNA sequence from a FASTA file and return it as an uppercase string.
+    Lines starting with '>' (description lines) are ignored.
     """
     sequence_lines = []
     with open(filepath, 'r') as f:
@@ -17,10 +17,10 @@ def load_fasta_sequence(filepath="../data/ecoli.fasta"):
     return ''.join(sequence_lines)
 
 def get_reverse_complement(dna_sequence):
-    """将正义链转换为反义链（reverse complement）"""
+    """Return the reverse complement of a DNA sequence."""
     return str(Seq(dna_sequence).reverse_complement())
 
-genome_seq=load_fasta_sequence()
+genome_seq = load_fasta_sequence()
 with open("../data/ecoli_positive_sequence.txt", "w") as f:
     f.write(genome_seq)
 
