@@ -208,16 +208,16 @@ uv run python your_script.py
 
 
 ##  Using MCP Server
-### Install third-party software
+1. Install third-party software
 [cherry](https://www.cherry-ai.com/) or [Cursor](https://www.cursor.com/cn).
 
-After installing Cherry Studio, open it, click the gear icon in the upper-right corner to enter the settings page, and then configure the relevant MCP server parameters.
-
+2. After installing Cherry Studio, open it, click the gear icon in the upper-right corner to enter the settings page, and then configure the relevant MCP server parameters.
 
 <img width="3816" height="603" alt="f2dba37e-0dd5-4a26-8d82-a0c7a9ea83a6" src="https://github.com/user-attachments/assets/f0bc1c3d-c566-4025-893f-b8b09bd49f6d" />
 
+3. Then copy and paste the contents of the `mcp_json.json` file from the current repository, and **be sure to change the MCP server address to your local address**.
 
-Then copy and paste the contents of the `mcp_json.json` file from the current repository, and **be sure to change the MCP server address to your local address**.
+<img width="944" height="1182" alt="image" src="https://github.com/user-attachments/assets/9cdec828-4965-4718-a3bd-3cbaeb60fa7c" />
 
 
 
