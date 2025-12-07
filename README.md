@@ -211,6 +211,12 @@ uv run python your_script.py
 ### Install third-party software
 [cherry](https://www.cherry-ai.com/) or [Cursor](https://www.cursor.com/cn).
 
+After installing Cherry Studio, open it, click the gear icon in the upper-right corner to enter the settings page, and then configure the relevant MCP server parameters.
+
+<img width="3831" height="828" alt="fd9d512d-8a26-4750-81cb-e45c17affcc0" src="https://github.com/user-attachments/assets/90d4e5c3-334a-4ecc-b49b-0c90b755c91e" />
+
+
+
 ### MCP Profile
 Replace "ABSOLUTE_PATH_PLACEHOLDER" in the `MCP/mcp_config.json` file with the absolute path of the project.
 
