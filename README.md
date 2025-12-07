@@ -207,34 +207,6 @@ uv run python your_script.py
 <img width="566" height="149" alt="image" src="https://github.com/user-attachments/assets/6e8cb7ec-864f-49f7-9b69-0f9309be72f4" />
 
 
-
-### Create a new directory for our project
-```bash
-uv init fitness_prediction
-cd fitness_prediction
-```
-
-### Create a virtual environment and activate it
-```bash
-uv venv
-.venv\Scripts\activate.bat
-```
-
-### Install dependencies
-```bash
-uv add "mcp[cli]" httpx
-uv add numpy scikit-learn scipy xgboost pandas matplotlib
-```
-
-### Create our server file
-```bash
-touch fitness_prediction.py
-```
-Copy the contents of `MCP/prediction.py` to the created `fitness_prediction.py` file.
-
-All files:
-![image](https://github.com/user-attachments/assets/df02712e-56bb-47b1-8f5f-f1f23d1668d7)
-
 ##  Using MCP Server
 ### Install third-party software
 [cherry](https://www.cherry-ai.com/) or [Cursor](https://www.cursor.com/cn).
