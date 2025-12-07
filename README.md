@@ -219,5 +219,15 @@ uv run python your_script.py
 
 <img width="944" height="1182" alt="image" src="https://github.com/user-attachments/assets/9cdec828-4965-4718-a3bd-3cbaeb60fa7c" />
 
+4. Run the MCP server.
+
+<img width="3392" height="437" alt="image" src="https://github.com/user-attachments/assets/8cedb5c8-37e4-4d1f-a4ed-5787b281a190" />
+
+5. Create an agent and enable MCP server access for it.
+<img width="1445" height="909" alt="image" src="https://github.com/user-attachments/assets/88f3d8e6-8d3e-4f5b-888e-070635f82259" />
+
+6. For example
+<img width="3368" height="1368" alt="image" src="https://github.com/user-attachments/assets/65fc6687-b268-4b7e-80df-8388511f8b0f" />
+
 
 
