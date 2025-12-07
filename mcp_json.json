@@ -1,0 +1,38 @@
+{
+  "mcpServers": {
+    "AP4zsBP3nb7oyuQ0Gd5Ur": {
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@gongrzhe/quickchart-mcp-server"
+      ],
+      "installSource": "manual",
+      "name": "quickchart-server",
+      "baseUrl": "",
+      "isActive": true,
+      "isTrusted": true,
+      "installedAt": 1762593356400,
+      "trustedAt": 1762593356400
+    },
+    "cWQYallNv-l5dLjM6zDn6": {
+      "type": "stdio",
+      "command": "uv",
+      "args": [
+        "--directory",
+        "D:\\MCP\\bio",
+        "run",
+        "bio.py"
+      ],
+      "installSource": "manual",
+      "name": "bio",
+      "baseUrl": "",
+      "isActive": true,
+      "isTrusted": true,
+      "installedAt": 1762431529912,
+      "trustedAt": 1762431529912
+    }
+  }
+}
