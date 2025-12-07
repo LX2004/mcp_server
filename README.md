@@ -213,7 +213,9 @@ uv run python your_script.py
 
 After installing Cherry Studio, open it, click the gear icon in the upper-right corner to enter the settings page, and then configure the relevant MCP server parameters.
 
-<img width="3831" height="828" alt="fd9d512d-8a26-4750-81cb-e45c17affcc0" src="https://github.com/user-attachments/assets/90d4e5c3-334a-4ecc-b49b-0c90b755c91e" />
+<img width="3816" height="603" alt="f2dba37e-0dd5-4a26-8d82-a0c7a9ea83a6" src="https://github.com/user-attachments/assets/f0bc1c3d-c566-4025-893f-b8b09bd49f6d" />
+
+Then copy and paste the contents of the `mcp_json.json` file from the current repository, and **be sure to change the MCP server address to your local address**.
 
 
 
