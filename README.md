@@ -168,14 +168,28 @@ uv --version
 <img width="893" height="955" alt="image" src="https://github.com/user-attachments/assets/e2611ed6-22d3-4474-bb04-d1c5666671b1" />
 
 
-4. 
+4. Open CMD in the `bio` directory
+
+In File Explorer, go to the `bio` folder, then:
+
+- Click the address bar, type `cmd` and press **Enter**.
 
 
+Check uv it’s installed:
+```bash
+uv --version
+```
 
 
+5. Create a virtual environment and install dependencies
 
+```bash
+# 1) Create a virtual environment in .venv
+uv venv
 
-
+# 2) Install all dependencies based on uv.lock / pyproject.toml
+uv sync
+```
 
 
 ### Create a new directory for our project
