@@ -201,7 +201,7 @@ uv sync
 7. Run your project scripts
 
 ```bash
-uv run python your_script.py
+uv run python bio.py
 ```
 
 <img width="566" height="149" alt="image" src="https://github.com/user-attachments/assets/6e8cb7ec-864f-49f7-9b69-0f9309be72f4" />
