@@ -17,6 +17,9 @@ Through this integration, LLMs evolve from passive text generators into **active
 ### 🧬 `fitness`
 **CRISPRi gRNA Optimization**
 
+<img width="1814" height="740" alt="image" src="https://github.com/user-attachments/assets/145f89d9-d8c0-4be7-acb9-5049f2929a20" />
+
+
 This module focuses on the **design and optimization of guide RNAs (gRNAs)** for CRISPR interference (CRISPRi).  
 It performs comprehensive analyses including:
 - On-target efficiency prediction  
@@ -31,6 +34,8 @@ By integrating these steps, the module identifies high-specificity, high-efficie
 ### 🧫 `promoter`
 **Promoter Sequence Optimization and Design**
 
+<img width="2563" height="1366" alt="image" src="https://github.com/user-attachments/assets/f9c560b8-56b6-44bc-b166-19cbfeeebf5a" />
+
 This module implements **generative and predictive modeling** for promoter sequence engineering.  
 It operates in an iterative design loop that generates candidate promoters, predicts their transcriptional strength, and refines the sequences based on optimization feedback.  
 This allows for the creation of promoters tuned to desired expression levels or multi-gene regulatory architectures, all within an autonomous LLM–MCP framework.
@@ -39,6 +44,10 @@ This allows for the creation of promoters tuned to desired expression levels or 
 
 ### 🧠 `toehold`
 **RNA Toehold Switch Design**
+
+<img width="2044" height="281" alt="image" src="https://github.com/user-attachments/assets/74d1272e-9944-471a-aa33-a0f9835e6986" />
+<img width="3243" height="1329" alt="image" src="https://github.com/user-attachments/assets/8acdaa43-c026-4063-b152-93d3efde723a" />
+
 
 This module enables **rational design of RNA-based switches**, a key regulatory element in synthetic biology.  
 It evaluates candidate sequences based on:
