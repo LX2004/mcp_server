@@ -40,6 +40,7 @@ This module implements **generative and predictive modeling** for promoter seque
 It operates in an iterative design loop that generates candidate promoters, predicts their transcriptional strength, and refines the sequences based on optimization feedback.  
 This allows for the creation of promoters tuned to desired expression levels or multi-gene regulatory architectures, all within an autonomous LLM–MCP framework.
 
+The promoter activity sequencing dataset generated in this study has been deposited in GEO under accession number GSE318900.
 ---
 
 ### 🧠 `toehold`
