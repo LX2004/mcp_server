@@ -1,7 +1,8 @@
-# Paper"GeneGPT: Tool-Augmented Large Language Models Enable Autonomous Biological Design via the Model Context Protocol"
+# Paper"BioDesignGPT: Tool-Augmented Large Language Models Enable Autonomous Biological Design via the Model Context Protocol"
 
 ---
-<img width="1804" height="1484" alt="image" src="https://github.com/user-attachments/assets/6c4cd7da-e358-465c-9188-8464215f94c1" />
+<img width="2135" height="1778" alt="image" src="https://github.com/user-attachments/assets/bb75e16f-d875-459d-b8d6-1a1f902a9981" />
+
 
 
 ## Overview
